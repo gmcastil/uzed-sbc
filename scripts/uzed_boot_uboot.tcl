@@ -60,7 +60,7 @@ if {[ catch {targets -set -filter {name =~ "APU"}} ]} {
 stop
 
 # Issue a power on reset to an active connection
-if {[ catch {rst -cores -clear-registers} ]} {
+if {[ catch {rst -srst -clear-registers} ]} {
   err "Reset unsupported"
 } else {
   status "Reset successful"
