@@ -48,3 +48,61 @@ And as a note to anyone that happens to be reading this, I'm excited - because
 a) I finally know what I'm going to build here and b) you get to read along as I
 go. Let's get to scripting.
 
+13 Sept 2023
+------------
+Building the kernel was straightforward:
+
+First, have to source the Vitis setup script to bring the cross compiler
+toolchain into the path. It's entirely possible that the compiler from the
+distro package manager that gets installed would work to, but I'm trying to
+follow the instructions from Xilinx as closely as I can.
+```bash
+$ source /tools/Xilinx/Vitis/2023.1/settings64.sh
+$ export CROSS_COMPILE='arm-linux-gnueabihf-'
+```
+Then the kernel build process is quite normal
+```
+$ make mrproper
+$ make ARCH=arm xilinx_zynq_defconfig
+$ make ARCH=arm menuconfig
+$ make ARCH=arm UIMAGE_LOADADDR=0x8000 uImage
+```
+One can (and should) pipe the output of the build command to a log file - I
+commonly use something like `>build_$(date +%H%M%S-%m%d%Y).log 2>&1`,
+background the process, and then just `tail -f` the log file.  I'm not entirely
+sure that I understand the `UIMAGE_LOADADDR` yet.  Anyway, once the build has
+finished, there will be a number of output products, including a compressed
+kernel image with U-boot header (the zImage is self-extracting and then gets a
+U-Boot wrapper added by `mkimage` so something like `file arch/arm/boot/uImage`
+will indicate it is uncompressed when it actually is).  It's this image that
+we're going to try to boot with the `bootm` command. Apparently, there are newer
+versions of U-Boot that are capable of booting the zImage directly and don't
+need the header stuck on there.
+
+To load this to the board, from the U-Boot prompt, I ran the following:
+```tcl
+xsct% stop
+xsct% dow -data "arch/arm/boot/uImage" 0x10000000
+xsct% con
+```
+The terminal spat out the following:
+```console
+Zynq> bootm 0x10000000
+## Booting kernel from Legacy Image at 10000000 ...
+   Image Name:   Linux-6.1.40-xilinx
+   Image Type:   ARM Linux Kernel Image (uncompressed)
+   Data Size:    4672584 Bytes = 4.5 MiB
+   Load Address: 00008000
+   Entry Point:  00008000
+   Verifying Checksum ... OK
+Working FDT set to 0
+   Loading Kernel Image
+FDT and ATAGS support not compiled in
+
+resetting ...
+```
+So, not exactly what I was hoping for - I would have like to see a bunch of
+kernel messages followed by a panic where it failed to find a root filesystem,
+but I'm not exactly sure what I'm missing yet.  I should be able to figure it
+out soon.
+

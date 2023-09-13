@@ -89,6 +89,11 @@ dow "${IMAGE_DIR}/${UBOOT_ELF}"
 status "Loaded ${IMAGE_DIR}/${UBOOT_ELF}"
 con
 
+# Load the kernel
+# stop
+# dow -data "arch/arm/boot/uImage" 0x10000000
+# con
+
 # Don't leave stale connections
 if { [catch {disconnect "${chan_id}"} ] } {
   err "Invalid channel ID specified"
