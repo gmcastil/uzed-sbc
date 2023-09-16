@@ -11,7 +11,8 @@ project at hand, namely my 6502 SBC that I'm implementing in the PL of the
 board.  I've encountered a number of folks asking how to do this, but I've yet
 to find any detailed instructions on how to get from a Vivado exported hardware
 design to a bootable Linux system for this board without having to resort to
-prebuilt images, downloading massive BSPs, or generating huge projects in Vitis.
+prebuilt images, downloading massive BSPs, or generating huge projects in Vitis
+or Petalinux.
 
 That said, you'll need Vitis to have access to the standalone Xilinx source
 libraries and the cross-compiler with the target triplet `arm-linux-gnueabihf`.
@@ -217,54 +218,54 @@ whatever IP was desired actually exist.  For example , in my case I have two
 block RAM that are exposed to the PS at 0x40000000 and 0x42000000 and if I dump
 out the compiled device tree, I get the following section
 ```dts
-	amba_pl {
-		#address-cells = <0x01>;
-		#size-cells = <0x01>;
-		compatible = "simple-bus";
-		ranges;
+amba_pl {
+	#address-cells = <0x01>;
+	#size-cells = <0x01>;
+	compatible = "simple-bus";
+	ranges;
 
-		axi_bram_ctrl@40000000 {
-			clock-names = "s_axi_aclk";
-			clocks = <0x01 0x0f>;
-			compatible = "xlnx,axi-bram-ctrl-4.1";
-			reg = <0x40000000 0x8000>;
-			xlnx,bram-addr-width = <0x0d>;
-			xlnx,bram-inst-mode = "EXTERNAL";
-			xlnx,ecc = <0x00>;
-			xlnx,ecc-onoff-reset-value = <0x00>;
-			xlnx,ecc-type = <0x00>;
-			xlnx,fault-inject = <0x00>;
-			xlnx,memory-depth = <0x2000>;
-			xlnx,rd-cmd-optimization = <0x00>;
-			xlnx,read-latency = <0x01>;
-			xlnx,s-axi-ctrl-addr-width = <0x20>;
-			xlnx,s-axi-ctrl-data-width = <0x20>;
-			xlnx,s-axi-id-width = <0x0d>;
-			xlnx,s-axi-supports-narrow-burst = <0x00>;
-			xlnx,single-port-bram = <0x01>;
-		};
-
-		axi_bram_ctrl@42000000 {
-			clock-names = "s_axi_aclk";
-			clocks = <0x01 0x0f>;
-			compatible = "xlnx,axi-bram-ctrl-4.1";
-			reg = <0x42000000 0x4000>;
-			xlnx,bram-addr-width = <0x0c>;
-			xlnx,bram-inst-mode = "EXTERNAL";
-			xlnx,ecc = <0x00>;
-			xlnx,ecc-onoff-reset-value = <0x00>;
-			xlnx,ecc-type = <0x00>;
-			xlnx,fault-inject = <0x00>;
-			xlnx,memory-depth = <0x1000>;
-			xlnx,rd-cmd-optimization = <0x00>;
-			xlnx,read-latency = <0x01>;
-			xlnx,s-axi-ctrl-addr-width = <0x20>;
-			xlnx,s-axi-ctrl-data-width = <0x20>;
-			xlnx,s-axi-id-width = <0x0d>;
-			xlnx,s-axi-supports-narrow-burst = <0x00>;
-			xlnx,single-port-bram = <0x01>;
-		};
+	axi_bram_ctrl@40000000 {
+		clock-names = "s_axi_aclk";
+		clocks = <0x01 0x0f>;
+		compatible = "xlnx,axi-bram-ctrl-4.1";
+		reg = <0x40000000 0x8000>;
+		xlnx,bram-addr-width = <0x0d>;
+		xlnx,bram-inst-mode = "EXTERNAL";
+		xlnx,ecc = <0x00>;
+		xlnx,ecc-onoff-reset-value = <0x00>;
+		xlnx,ecc-type = <0x00>;
+		xlnx,fault-inject = <0x00>;
+		xlnx,memory-depth = <0x2000>;
+		xlnx,rd-cmd-optimization = <0x00>;
+		xlnx,read-latency = <0x01>;
+		xlnx,s-axi-ctrl-addr-width = <0x20>;
+		xlnx,s-axi-ctrl-data-width = <0x20>;
+		xlnx,s-axi-id-width = <0x0d>;
+		xlnx,s-axi-supports-narrow-burst = <0x00>;
+		xlnx,single-port-bram = <0x01>;
 	};
+
+	axi_bram_ctrl@42000000 {
+		clock-names = "s_axi_aclk";
+		clocks = <0x01 0x0f>;
+		compatible = "xlnx,axi-bram-ctrl-4.1";
+		reg = <0x42000000 0x4000>;
+		xlnx,bram-addr-width = <0x0c>;
+		xlnx,bram-inst-mode = "EXTERNAL";
+		xlnx,ecc = <0x00>;
+		xlnx,ecc-onoff-reset-value = <0x00>;
+		xlnx,ecc-type = <0x00>;
+		xlnx,fault-inject = <0x00>;
+		xlnx,memory-depth = <0x1000>;
+		xlnx,rd-cmd-optimization = <0x00>;
+		xlnx,read-latency = <0x01>;
+		xlnx,s-axi-ctrl-addr-width = <0x20>;
+		xlnx,s-axi-ctrl-data-width = <0x20>;
+		xlnx,s-axi-id-width = <0x0d>;
+		xlnx,s-axi-supports-narrow-burst = <0x00>;
+		xlnx,single-port-bram = <0x01>;
+	};
+};
 ```
 Note that we can see the clocks and offsets are all what would be expected. It's
 worth keeping in mind that creating device trees is probably the place where the
