@@ -217,7 +217,7 @@ point, it is wise to inspect the compiled device tree and make sure that
 whatever IP was desired actually exist.  For example , in my case I have two
 block RAM that are exposed to the PS at 0x40000000 and 0x42000000 and if I dump
 out the compiled device tree, I get the following section
-```dts
+```c
 amba_pl {
 	#address-cells = <0x01>;
 	#size-cells = <0x01>;
