@@ -27,7 +27,6 @@ $ export CROSS_COMPILE='arm-linux-gnueabihf-'
 $ export ARCH=arm
 ```
 Note that the target triplet still has the trailing hyphen `-` in the string.
-```
 4. From the U-boot source code directory, you'll want to run the following
 `make` targets
 ```bash
