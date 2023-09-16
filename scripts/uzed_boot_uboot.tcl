@@ -6,9 +6,12 @@ set IMAGE_DIR "../images"
 set FSBL_ELF "fsbl.elf"
 set UBOOT_ELF "u-boot.elf"
 set FDT "system.dtb"
+set UIMAGE "uImage"
+set INITRD ""
 
 # Offsets
-set FDT_OFFSET "0x00100000"
+set UIMAGE_OFFSET "0x10000000"
+set FDT_OFFSET    "0x00100000"
 
 proc err {msg} {
   puts stderr "ERROR: ${msg}"
@@ -32,6 +35,10 @@ proc check_for_images {image_dir} {
   }
   if {! [file exists "${image_dir}/${::UBOOT_ELF}"]} {
     err "Could not find U-Boot ELF at ${image_dir}/${::UBOOT_ELF}"
+    set retval 1
+  }
+  if {! [file exists "${image_dir}/${::UIMAGE}"]} {
+    err "Could not find kernel uImage at ${image_dir}/${::UIMAGE}"
     set retval 1
   }
   return "${retval}"
@@ -87,12 +94,13 @@ dow -data "${IMAGE_DIR}/${FDT}" "${FDT_OFFSET}"
 status "Loaded FDT blob at ${IMAGE_DIR}/${FDT} to ${FDT_OFFSET}"
 dow "${IMAGE_DIR}/${UBOOT_ELF}"
 status "Loaded ${IMAGE_DIR}/${UBOOT_ELF}"
-con
 
-# Load the kernel
-# stop
-# dow -data "arch/arm/boot/uImage" 0x10000000
-# con
+# Load the kernel, device tree and initial ramdisk (TBD for this)
+dow -data "${IMAGE_DIR}/${UIMAGE}" "${UIMAGE_OFFSET}"
+status "Loaded kernel uImage at ${IMAGE_DIR}/${UIMAGE} to ${UIMAGE_OFFSET}"
+
+# Continue and should see a U-boot console momentarily
+con
 
 # Don't leave stale connections
 if { [catch {disconnect "${chan_id}"} ] } {
