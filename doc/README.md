@@ -193,8 +193,9 @@ $ tree
 Now that the device tree source files have been created from the metadata
 contained in the XSA, we can put it all together to create a source file that
 can then be compiled into the flattened device tree blob needed to actually boot
-the kernel (TBD: not sure if the device tree is needed by U-Boot, at least in
-the way I'm using it).
+the kernel.
+
+(TBD: not sure if the device tree is needed by U-Boot, at least in the way I'm using it).
 
 4. Now, we will use the GCC preprocessor to consolidate all of the source files
 into a device tree source file that can be fed into the device tree compiler.
@@ -275,7 +276,12 @@ your mileage may very much vary.
 
 Root Filesystem
 ---------------
-Building the root filesystem is somewhat up to the 
+Building the root filesystem is somewhat up to the user and I'll let you decide
+how to do that.  The end result will need to be that you have a rootfs in a
+tarball or image file that you can put on an SD card.  You will likely need to
+modify the `/etc/fstab` file that it creates to make more specific to your
+installation. Buildroot for example creates virtually nothing in `/etc` and you
+will need to build the system up as you see fit.
 
 Linux Kernel
 ------------
@@ -307,4 +313,13 @@ $ make ARCH=arm UIMAGE_LOADADDR=0x8000 uImage >build_$(date +%H%M%S-%m%d%Y).log 
 I would recommend capturing the build log with something like the last line,
 which allows you to use the command history to run the same command, but
 preserve all of the build logs sequentially.
+5. To build the kernel modules, you will need to run that target as well and
+then install them somewhere convenient so that you can transfer them to
+`/lib/modules` on the SD card image or rootfs that is going to get used.
+```bash
+$ make ARCH=arm UIMAGE_LOADADDR=0x8000 modules
+$ make ARCH=arm UIMAGE_LOADADDR=0x8000 INSTALL_MOD_PATH=</path/to/modules> modules_install
+```
+Unclear as to whether additional kernel modules will need to be built to support
+Xilinx IP. Time will tell.
 
