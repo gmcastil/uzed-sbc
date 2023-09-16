@@ -106,3 +106,19 @@ kernel messages followed by a panic where it failed to find a root filesystem,
 but I'm not exactly sure what I'm missing yet.  I should be able to figure it
 out soon.
 
+
+15 September 2023
+-----------------
+It's alive.  I got all the way through to the kernel loading, finding the root
+filesystem, running busybox, the whole nine yards. I needed to modify the U-boot
+environment variables to include these
+```tcsh
+Zynq> setenv rootfstype ext4
+Zynq> setenv bootargs "earlycon console=ttyPS0,115200 root=/dev/mmcblk0p2 rootwait rw earlyprintk"
+```
+In hindsight, that `rootfstype` variable might not be necessary, but the others
+definitely were. The kernel serial port output was vanishing at some point
+during the boot because I didn't have the `console=ttyPS0,115200` there and
+without the `rootwait` directive, it would completely miss the SD card.
+
+
