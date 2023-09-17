@@ -1,0 +1,18 @@
+#!/bin/bash
+
+if ! source "common.sh" >/dev/null 2>&1; then
+    printf '%s\n' "Could not import common.sh" >&2
+    exit 1
+fi
+
+# Check for XSCT tools to be available
+command -v xsct >/dev/null 2>&1 ||
+    { err "No XSCT tools found. Check PATH."; exit 1; }
+
+# Check for Xilinx device tree generator source repo
+
+# Check for Xilinx exported hardware archive
+
+# Generate device tree source code
+
+# 
