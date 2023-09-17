@@ -1,8 +1,8 @@
-[submodule "device-tree-xlnx"]
+[submodule "extern/device-tree-xlnx"]
 	path = extern/device-tree-xlnx
 	url = git@personal:Xilinx/device-tree-xlnx
 	branch = master
-[submodule "u-boot-xlnx"]
+[submodule "extern/u-boot-xlnx"]
 	path = extern/u-boot-xlnx
 	url = git@personal:Xilinx/u-boot-xlnx
 	branch = master
