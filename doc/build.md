@@ -129,7 +129,7 @@ Then create a software design for the targeted processor - these instructions
 are lifted from the Xilinx wii and I do not claim to entirely understand what is
 being done here
 ```tcl
-% set procs [hsi get_cells -hier -filter {IP_TYPE=PROCESSOR}]
+% set procs [hsi get_cells -hier -filter {IP_TYPE==PROCESSOR}]
 % puts "Processors extracted from XSA are ${procs}"
 % hsi create_sw_design device-tree -os device_tree -proc ps7_cortexa9_0
 ```
