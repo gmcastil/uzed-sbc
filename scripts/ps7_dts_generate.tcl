@@ -1,13 +1,14 @@
 # Generate device tree source code from a Vivado exported hardware definition
 
-set build_dir "../build"
-set dts_dir "${build_dir}/dts"
-
 set common "common.tcl"
-set xlnx_dtg_repo "../extern/device-tree-xlnx"
 
 proc usage {prog_name} {
-    puts stdout "Usage: ${prog_name} \[filename\]"
+    puts stdout "Usage: ${prog_name} \[FILENAME\] \[REPO\] \[DIR\]"
+    puts stdout ""
+    puts stdout "Where FILENAME is the exported hardware design, REPO "
+    puts stdout "is the path to the Xilinx device tree generator source code "
+    puts stdout "and DIR the location to write the generated device tree source."
+    puts stdout "Any existing files will be overwritten."
 }
 
 # Import common Tcl functions
@@ -19,17 +20,14 @@ if { [file exists "${common}"] } {
 }
 
 # Need to provide a location for the exported hardware design as the first
-# argument
-if { "${argc}" != 1 } {
+# argument and the output directory as the second argument
+if { "${argc}" != 3 } {
     usage "${argv0}"
     exit 1
 } else {
     set xsa_file [lindex "${argv}" 0]
-    if { [file exist "${xsa_file}"] } {
-        set xsa_file [file normalize "${xsa_file}"]
-    } else {
-        err "XSA file not found"
-    }
+    set xlnx_dtg_repo [lindex "${argv}" 1]
+    set dts_dir [lindex "${argv}" 2]
 }
 
 # Need to check that the Xilinx device tree generator source code has been
@@ -66,7 +64,6 @@ if { [hsi::get_sw_designs] == "" } {
     exit 1
 }
 
-status "Generating device tree in [file normalize ${dts_dir}]"
 hsi::generate_target -dir "${dts_dir}"
 
 hsi::close_hw_design -quiet [hsi::current_hw_design]

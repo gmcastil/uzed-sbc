@@ -1,18 +1,91 @@
 #!/bin/bash
 
+dts_generate_script="./ps7_dts_generate.tcl"
+
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    printf '%s\n' "Script should be executed not sourced" >&2
+    return 1
+fi
+
 if ! source "common.sh" >/dev/null 2>&1; then
     printf '%s\n' "Could not import common.sh" >&2
     exit 1
 fi
 
-# Check for XSCT tools to be available
+if ! source "constants.sh" >/dev/null 2>&1; then
+    err "Could not import constants.sh" >&2
+    exit 1
+fi
+
+function usage () {
+    printf 'Usage: %s [XSA_FILE]\n' "${1}"
+    return 0
+}
+
+# Check for XSCT tools and script to be available
 command -v xsct >/dev/null 2>&1 ||
     { err "No XSCT tools found. Check PATH."; exit 1; }
-
-# Check for Xilinx device tree generator source repo
+[[ -f "${dts_generate_script}" ]] ||
+    { err "Could not find ${dts_generate_script} script."; exit 1; }
 
 # Check for Xilinx exported hardware archive
+if [[ "${#}" -eq 0 ]]; then
+    usage "${0}"
+    exit 1
+else
+    if is_xsa_file "${1}"; then
+        xsa_file="${1}"
+    else
+        err "File provided is not a valid archive"
+        exit 1
+    fi
+fi
 
-# Generate device tree source code
+# Check for Xilinx device tree generator source repo
+if [[ ! -d "${UZED_SBC_EXTERN_DIR}/device-tree-xlnx" ]]; then
+    err "Could not find Xilinx device tree generator source repository"
+    exit 1
+else
+    dtg_rev="$(git -C "${UZED_SBC_EXTERN_DIR}/device-tree-xlnx" describe --tags)"
+    status "Found device tree generator source tag: ${dtg_rev}"
+fi
 
-# 
+# Check for destination directory
+if [[ ! -d "${UZED_SBC_BUILD_DIR}/dts" ]]; then
+    mkdir -p "${UZED_SBC_BUILD_DIR}/dts"
+fi
+if [[ ! -w "${UZED_SBC_BUILD_DIR}/dts" ]]; then
+    err "Output directory could not be made or is not writable by current user"
+    exit 1
+else
+    dts_build_dir="$(readlink -f ${UZED_SBC_BUILD_DIR}/dts)"
+fi
+
+# Invoke the Xilinx XSCT command line tools with the DTS generation and
+# hopefully safe arguments
+status "Generating device tree source at ${dts_build_dir}"
+# The XSCT interpreter may issue some warnings (which are probably important)
+# so we dont try to suppress them
+xsct \
+    "${dts_generate_script}" \
+    "${xsa_file}" \
+    "${UZED_SBC_EXTERN_DIR}/device-tree-xlnx" \
+    "${dts_build_dir}"
+# As a proxy for success, we look here
+if [[ ! -f "${dts_build_dir}/system.dts" ]]; then
+    err "Could not create device tree source"
+    exit 1
+fi
+
+# Preprocess the source tree from the directory itself
+pushd "${dts_build_dir}" >/dev/null
+# Preprocess the top level device tree source and overwrite the existing
+# system.dts source file that was originally created
+gcc -I "./" \
+    -E -nostdinc \
+    -undef -D__DTS__ \
+    -x assembler-with-cpp \
+    -o "system.dts" "system-top.dts"
+status "Consolidated device tree source is at $(readlink -f system.dts)"
+popd >/dev/null
+
