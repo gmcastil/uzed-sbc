@@ -9,3 +9,6 @@
 [submodule "extern/linux-xlnx"]
 	path = extern/linux-xlnx
 	url = git@personal:Xilinx/linux-xlnx
+[submodule "extern/buildroot"]
+	path = extern/buildroot
+	url = https://git.buildroot.net/buildroot
