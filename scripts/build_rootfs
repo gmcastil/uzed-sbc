@@ -1,0 +1,46 @@
+#!/bin/bash
+
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    printf '%s\n' "Script should be executed not sourced" >&2
+    return 1
+fi
+if [[ "${EUID}" -ne 0 ]]; then
+    printf '%s\n' "Script must be run as root" >&2
+    exit 1
+fi
+
+source "common.sh" >/dev/null 2>&1 || \
+    { printf '%s\n' "Could not import common.sh" >&2; exit 1; }
+
+source "constants.sh" >/dev/null 2>&1 || \
+    { err "Could not import constants.sh" >&2; exit 1; }
+
+command -v debootstrap >/dev/null 2>&1 || \
+    { depends_on "debootstrap"; exit 1; }
+# It is up to users to install a QEMU version that is sufficiently recent enough
+# to not cause problems. 
+command -v "qemu-${QEMU_ARCH}-static" >/dev/null 2>&1 || \
+    { depends_on "qemu-${QEMU_ARCH}-static"; exit 1; }
+qemu_static="$(command -v "qemu-${QEMU_ARCH}-static")"
+
+rootfs="${UZED_SBC_BUILD_DIR}/rootfs.${DEBIAN_ARCH}"
+
+status "Building Debian first pass"
+if ! debootstrap \
+    --verbose \
+    --foreign \
+    --arch "${DEBIAN_ARCH}" \
+    "${DEBIAN_SUITE}" \
+    "${rootfs}" \
+    "${DEBIAN_MIRROR}" >"debootstrap_$(timestamp).log" 2>&1; then
+    err "Debian first pass construction failed"
+    exit 1
+fi
+
+install -m 755 "${qemu_static}" "${rootfs}/usr/bin"
+install -m 755 "second-stage" "${rootfs}/tmp"
+install -m 644 "common.sh" "${rootfs}/tmp"
+
+status "Building Debian second stage"
+LANG=C.UTF-8 chroot "${rootfs}" "/tmp/second-stage"
+

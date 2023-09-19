@@ -1,0 +1,10 @@
+#!/bin/bash
+
+source "/tmp/common.sh" >/dev/null 2>&1 || \
+    { printf '%s\n' "Could not import /tmp/common.sh" >&2; exit 1; }
+
+if ! /debootstrap/debootstrap \
+    --second-stage >"second-stage-$(timestamp)" 2>&1; then
+    err "Second stage failed"
+fi
+
