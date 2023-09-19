@@ -267,7 +267,7 @@ amba_pl {
 		xlnx,single-port-bram = <0x01>;
 	};
 };
-```
+
 Note that we can see the clocks and offsets are all what would be expected. It's
 worth keeping in mind that creating device trees is probably the place where the
 most variability is to be expected, since that's where all of the board specific
@@ -282,6 +282,27 @@ tarball or image file that you can put on an SD card.  You will likely need to
 modify the `/etc/fstab` file that it creates to make more specific to your
 installation. Buildroot for example creates virtually nothing in `/etc` and you
 will need to build the system up as you see fit.
+
+Since I will be using the 6.1.40 kernel version, I've selected the 6.1.x or
+later option for the kernel headers, but other than that, the
+`zynq_microzed_defconfig` target is what I've chosen.  Cross compiling root
+filesystems for embedded boards is an entire subject to itself.  That said, I'm
+going to hit the major points with Buildroot:
+
+1. Run `make list-defconfigs` to see that a Microzed is indeed present, which is
+   great.  So then run `make zynq_microzed_defconfig` and then run `make
+   menuconfig` to further customize the build process
+2. Target Options should now show that we are targeting an ARM Cortex A9 and
+   all the other things that go with it, like hard float, NEON SIMD support,
+   etc. Mess with this at your peril.
+3. Toolchain is another place where messing around is not something you should
+   do without a good reason (e.g., you want to use the ARM compiler that is
+   installed with Vitis to build everything). That's not necessarily an unlikely
+   use case.  Kernel header versions are another thing to keep in mind here -
+   I'm going to be running the 6.1.40 release from Xilinx, so I've bumped up my
+   header versions to the 6.1.x option.
+4. I've turned off the Linux kernel and bootloader options, since I'm using my
+   own derived from what Xilinx makes available.
 
 Linux Kernel
 ------------
@@ -322,4 +343,13 @@ $ make ARCH=arm UIMAGE_LOADADDR=0x8000 INSTALL_MOD_PATH=</path/to/modules> modul
 ```
 Unclear as to whether additional kernel modules will need to be built to support
 Xilinx IP. Time will tell.
+
+Some options I've added
+[\*] Enable kernel headers through /sys/kernel/kheaders.tar.xz
+
+More Edits
+----------
+Need to fix /etc/fstab in the buildroot filesystem
+Adjust kernel command line arguments in the chosen node of the device tree
+:q
 
