@@ -25,22 +25,31 @@ qemu_static="$(command -v "qemu-${QEMU_ARCH}-static")"
 
 rootfs="${UZED_SBC_BUILD_DIR}/rootfs.${DEBIAN_ARCH}"
 
-status "Building Debian first pass"
+status "Building Debian root filesystem"
 if ! debootstrap \
     --verbose \
+    --include "${DEBIAN_INCLUDE}" \
     --foreign \
     --arch "${DEBIAN_ARCH}" \
     "${DEBIAN_SUITE}" \
     "${rootfs}" \
     "${DEBIAN_MIRROR}" >"debootstrap_$(timestamp).log" 2>&1; then
-    err "Debian first pass construction failed"
+    err "Debootstrap first stage construction failed"
     exit 1
+else
+    status "Debootstrap first stage complete"
 fi
 
-install -m 755 "${qemu_static}" "${rootfs}/usr/bin"
-install -m 755 "second-stage" "${rootfs}/tmp"
+# Several files are referenced by the `second-stage` script and need to be
+# copied into the rootfs prior to chrooting into it
+install -m 755 "second_stage" "${rootfs}/tmp"
 install -m 644 "common.sh" "${rootfs}/tmp"
+install -m 644 "constants.sh" "${rootfs}/tmp"
 
 status "Building Debian second stage"
-LANG=C.UTF-8 chroot "${rootfs}" "/tmp/second-stage"
+if ! LANG=C.UTF-8 chroot "${rootfs}" "/tmp/second_stage"; then
+    err "Debootstrap second stage failed"
+else
+    status "Debootstrap second stage complete"
+fi
 

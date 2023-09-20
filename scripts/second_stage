@@ -1,0 +1,96 @@
+#!/bin/bash
+
+source "/tmp/common.sh" >/dev/null 2>&1 || \
+    { printf '%s\n' "Could not import /tmp/common.sh" >&2; exit 1; }
+source "/tmp/constants.sh" >/dev/null 2>&1 || \
+    { printf '%s\n' "Could not import /tmp/constants.sh" >&2; exit 1; }
+
+if ! /debootstrap/debootstrap \
+    --second-stage >"second-stage-$(timestamp).log" 2>&1; then
+    err "Second stage failed"
+fi
+
+# Set up /etc/fstab
+cat > /etc/fstab << EOF
+# Device            Mount       Type        Options         Dump    Check
+/dev/mmcblk0p2      /           ext4        defaults        0       1
+/dev/mmcblk0p1      /boot       vfat        nosuid,nodev    0       2
+proc                /proc       proc        defaults        0       0
+sys                 /sys        sysfs       defaults        0       0
+config              /config     configfs    defaults        0       0
+EOF
+
+# Configure the serial port
+cat > /etc/securetty << EOF
+# Zynq PS UART
+"${DEBIAN_SERIAL}"
+EOF
+
+# Add the hostname to a couple of files
+printf '%s\n' "${DEBIAN_HOSTNAME}" > /etc/hostname
+sed -i '/^127.*localhost$/{p;s/localhost/'"${DEBIAN_HOSTNAME}"'/}' /etc/hosts
+
+# Configure networking
+cat > /etc/network/interfaces << EOF
+# Loopback interface
+auto lo
+iface lo inet loopback
+
+# Wired ethernet interface
+auto end0
+iface end0 inet dhcp
+EOF
+
+# Set up a non-root user with sudoer privileges
+useradd \
+    -G adm,dialout,kmem,cdrom,floppy,audio,dip,video,netdev,plugdev,staff,i2c \
+    --shell /bin/bash \
+    "${DEBIAN_USER}"
+
+passwd "${DEBIAN_USER}" << EOF
+"${DEBIAN_PASS}"
+"${DEBIAN_PASS}"
+EOF
+
+echo "${DEBIAN_USER}  ALL=NOPASSD: ALL" >> /etc/sudoers
+
+# Resynchronize the package index files prior to installing the SSH server
+# packages and configuration
+apt-get update
+
+# Set up SSH server using the tasksel package (which requires /proc to be
+# mounted for some reason) along with the standard packages we would expect
+# (these are in addition to what was installed during the first state with the
+# --include options)
+if ! mount -t proc proc /proc; then
+    err "Unable to mount proc filesystem"
+    exit 1
+fi
+tasksel --new-install install ssh-server standard
+umount /proc
+
+# Regenerate SSH keys on first boot in case we have multiple images out there on
+# the network (unlikely, but who knows how this will get repurposed)
+cat > /etc/systemd/system/regenerate_ssh_host_keys.service << EOF
+[Unit]
+Description=Regenerate SSH host keys
+Before=ssh.service
+
+[Service]
+Type=oneshot
+ExecStartPre=-/bin/sh -c "/bin/rm -fv /etc/ssh/ssh_host_*_key*"
+ExecStart=/usr/bin/ssh-keygen -A -v
+ExecStartPost=/bin/systemctl disable regenerate_ssh_host_keys
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable the new service
+systemctl enable regenerate_ssh_host_keys
+
+# Some final things to do while still in the chroot environment
+ldconfig
+apt-get clean
+rm -f /tmp/*
+

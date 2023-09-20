@@ -1,4 +1,13 @@
+# Editor swap files that really should belong elsewhere
 .*.swp
+
+# Log files
+scripts/debootstrap_*.log
+
+# Build directories
 images/
 build/
+
+# Xilinx stuff
 .Xil/
+
