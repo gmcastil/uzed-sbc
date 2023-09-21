@@ -1,12 +1,49 @@
 #!/bin/bash
 
+# Perform a debootstrap second stage installation
+#
+# This script is intended to be called by the `build_rootfs` script as the
+# executable to run when chrooting into the first pass root filesystem that
+# debootstrap creates.  It is quite specific to the intended application and
+# uses constants to define some options that may need to change in the future,
+# notably extra packages to include during the first pass that debootstrap
+# forgets to pull down by default.
+#
+# The primary operations it performs are:
+#   * Completes the debootstrap --second-stage process from the chroot
+#     environment
+#   * Configures /etc/fstab for the expected SD card image, which is a small
+#     FAT32 filesystem that will be mounted at /boot as well as an EXT4
+#     root filesystem. This is a very common SD partition pattern used for
+#     Xilinx based embedded systems (see the relevant sections of the script for
+#     details).
+#   * Sets up a serial port with root access because we're an embedded system
+#   * Configures a wired Ethernet interface
+#   * Sets up an SSH server and instructs systemd to regenerate new SSH keys the
+#     first time the system is booted. This requires that a proc filesystem be
+#     mounted in the chroot subdirectory. If the second stage script fails for
+#     any reason, the caller should make sure that if a proc is mounted, it gets
+#     unmounted afterwards.
+#   * Creates a non-root user, with sudo access
+#   * On the way out, removes the pieces of itself left behind
+
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    printf '%s\n' "Script should be executed not sourced" >&2
+    return 1
+fi
+if [[ "${EUID}" -ne 0 ]]; then
+    printf '%s\n' "Script must be run as root" >&2
+    exit 1
+fi
+
 source "/tmp/common.sh" >/dev/null 2>&1 || \
     { printf '%s\n' "Could not import /tmp/common.sh" >&2; exit 1; }
 source "/tmp/constants.sh" >/dev/null 2>&1 || \
-    { printf '%s\n' "Could not import /tmp/constants.sh" >&2; exit 1; }
+    { err "Could not import /tmp/constants.sh"; exit 1; }
 
+build_log="second-stage-$(timestamp).log"
 if ! /debootstrap/debootstrap \
-    --second-stage >"second-stage-$(timestamp).log" 2>&1; then
+    --second-stage >"${build_log}" 2>&1; then
     err "Second stage failed"
 fi
 
@@ -56,7 +93,7 @@ echo "${DEBIAN_USER}  ALL=NOPASSD: ALL" >> /etc/sudoers
 
 # Resynchronize the package index files prior to installing the SSH server
 # packages and configuration
-apt-get update
+apt-get update >> "${build_log}"
 
 # Set up SSH server using the tasksel package (which requires /proc to be
 # mounted for some reason) along with the standard packages we would expect
@@ -87,10 +124,10 @@ WantedBy=multi-user.target
 EOF
 
 # Enable the new service
-systemctl enable regenerate_ssh_host_keys
+systemctl enable regenerate_ssh_host_keys >> "${build_log}"
 
 # Some final things to do while still in the chroot environment
-ldconfig
-apt-get clean
+ldconfig >> "${build_log}"
+apt-get clean >> "${build_log}"
 rm -f /tmp/*
 

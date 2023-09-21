@@ -15,12 +15,17 @@ export DEBIAN_MIRROR="http://deb.debian.org/debian"
 DEBIAN_INCLUDE="sudo,device-tree-compiler,i2c-tools,build-essential,screen"
 DEBIAN_INCLUDE+=",pkg-config,libglib2.0-dev,texinfo,dh-autoreconf"
 DEBIAN_INCLUDE+=",autotools-dev,git,debhelper,fakeroot,devscripts,bc"
+# Some of these packages do not get pulled in by default and need to be
+# explicitly specified or the first stage will fail
 DEBIAN_INCLUDE+=",libi2c-dev,cloud-guest-utils,dbus,perl-openssl-defaults"
+# Useful packages, including the HAVEGE userspace entropy daemon, which makes
+# SSHD start faster
 DEBIAN_INCLUDE+=",vim,rsync,haveged"
 export DEBIAN_INCLUDE
 
-# QEMU related constants
-export QEMU_ARCH="arm"
+# This is a case sensitive string and needs to match the Linux kernel entries
+# in /proc for registered executable formats
+export QEMU_BINFMT="qemu-arm"
 
 # Second stage related constants
 export DEBIAN_USER="debian"

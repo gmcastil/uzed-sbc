@@ -1,5 +1,31 @@
 #!/bin/bash
 
+# Create and configure Debian root filesystem
+#
+# This is one of a sequence of scripts that is used to build a bootable SD
+# card image for a Microzed SoC development board. It creates and configures
+# a root filesystem containing a user account, an SSH server, essential build
+# tools, and other items from an existing Linux host. It essentially performs
+# two basic operations:
+#
+# 1) Uses whatever debootstrap package is installed on the host to perform a
+# first pass installation, which downloads many essential packages from a
+# specified Debian mirror into a rootfs subdirectory and
+#
+# 2) using QEMU transparent emulation, copies some scripts to that installation
+# subdirectory, performs a `chroot` operation, and runs the debootstrap second
+# stage operation from there. After the second stage is complete, while still in
+# the chroot environment, other configurations required to make the system
+# bootable and usable are also performed (see the second_stage shell script for
+# details).
+#
+# Note that it is incumbent that the host system be configured for QEMU
+# transparent emulation. For Debian-based systems, this is usually done by
+# installing the `binfmt-support` and `qemu-user-static` packages, but users
+# should verify that the binfmt entries were properly registered with the host
+# system kernel. The script attempts to verify that transparent emulation has
+# been set up for the QEMU architecture specified in the build constants.
+
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     printf '%s\n' "Script should be executed not sourced" >&2
     return 1
@@ -17,13 +43,21 @@ source "constants.sh" >/dev/null 2>&1 || \
 
 command -v debootstrap >/dev/null 2>&1 || \
     { depends_on "debootstrap"; exit 1; }
-# It is up to users to install a QEMU version that is sufficiently recent enough
-# to not cause problems. 
-command -v "qemu-${QEMU_ARCH}-static" >/dev/null 2>&1 || \
-    { depends_on "qemu-${QEMU_ARCH}-static"; exit 1; }
-qemu_static="$(command -v "qemu-${QEMU_ARCH}-static")"
 
+# Add a check for QEMU transparent emulation here
+trans_qemu_status="$(head -n1 "/proc/sys/fs/binfmt_misc/${QEMU_BINFMT}" \
+                        2>/dev/null)"
+if [[ ! "${trans_qemu_status}" == "enabled" ]]; then
+    err "Transparent emulation may not be enabled for target architecture"
+    exit 1
+fi
+
+# Move any old root filesystems that might exist
 rootfs="${UZED_SBC_BUILD_DIR}/rootfs.${DEBIAN_ARCH}"
+if [[ -d "${rootfs}" ]]; then
+    status "Found an existing directory at ${rootfs}"
+    mv "${rootfs}" "${rootfs}_$(timestamp)"
+fi
 
 status "Building Debian root filesystem"
 if ! debootstrap \
@@ -52,4 +86,7 @@ if ! LANG=C.UTF-8 chroot "${rootfs}" "/tmp/second_stage"; then
 else
     status "Debootstrap second stage complete"
 fi
+# In cases where the second stage script failed, a proc might still be mounted
+# and we would like to fail responsibly, so just attempt to umount it
+umount "${rootfs}/proc" >/dev/null 2>&1
 

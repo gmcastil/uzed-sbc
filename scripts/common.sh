@@ -26,6 +26,8 @@ function depends_on () {
     return 0
 }
 
+# Returns true if file that it is called with is a valid Xilinx exported
+# hardware definition
 function is_xsa_file () {
     unzip -t "${1}" >/dev/null 2>&1
     return "${?}"
