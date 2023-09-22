@@ -1,4 +1,5 @@
 #!/bin/bash
+<<<<<<< HEAD
 
 # Find a bootgen
 # Find a kernel
@@ -15,3 +16,53 @@
 # Create an extlinux.conf file
 
 
+=======
+#
+# Create directory containing Microzed boot files and images
+
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    printf '%s\n' "Script should be executed not sourced" >&2
+    return 1
+fi
+
+source "common.sh" >/dev/null 2>&1 || \
+    { printf '%s\n' "Could not import common.sh" >&2; exit 1; }
+
+source "constants.sh" >/dev/null 2>&1 || \
+    { err "Could not import constants.sh" >&2; exit 1; }
+
+# First gather up and make sure that all of the necessary files and tools are 
+# accessible
+ready_check=0
+
+# Check for bootgen being present
+command -v bootgen >/dev/null 2>&1 || \
+    { depends_on "bootgen"; exit 1; }
+
+# Find the FSBL ELF
+if [[ ! -f "${UZED_SBC_FSBL_DIR}/fsbl.elf" ]]; then
+    err "No FSBL ELF found in $(readlink -f "${UZED_SBC_FSBL_DIR}")"
+    ready_check=1
+fi
+
+# Find U-Boot ELF
+if [[ ! -f "${UZED_SBC_UBOOT_DIR}/u-boot.elf" ]]; then
+    err "No U-Boot ELF found in $(readlink -f "${UZED_SBC_UBOOT_DIR}")"
+    ready_check=1
+fi
+
+# Find a kernel uImage
+if [[ ! -f "${UZED_SBC_LINUX_DIR}/uImage" ]]; then
+    err "No kernel uImage found in $(readlink -f "${UZED_SBC_LINUX_DIR}")"
+    ready_check=1
+fi
+
+# Find kernel modules
+
+# Find a device tree
+
+if [[ "${ready_check}" -ne 0 ]]; then
+    err "One or more required dependancies are missing"
+    exit 1
+fi
+>>>>>>> 535b4428df4a23eaf04d694cb6c965ba0d9ae477
