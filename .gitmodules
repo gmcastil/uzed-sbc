@@ -9,3 +9,4 @@
 [submodule "extern/linux-xlnx"]
 	path = extern/linux-xlnx
 	url = git@personal:Xilinx/linux-xlnx
+	branch = master
