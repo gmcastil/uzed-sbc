@@ -32,3 +32,10 @@ export DEBIAN_USER="debian"
 export DEBIAN_PASS="none"
 export DEBIAN_HOSTNAME="uzed-sbc"
 export DEBIAN_SERIAL="ttyPS0"
+
+# Constants for building a boot directory
+export UZED_SBC_LINUX_DIR="${UZED_SBC_EXTERN_DIR}/linux-xlnx"
+export UZED_SBC_FSBL_DIR=
+export UZED_SBC_UBOOT_DIR="${UZED_SBC_EXTERN_DIR}/u-boot-xlnx"
+export UZED_SBC_DTB_DIR="${UZED_SBC_BUILD_DIR}/device-tree"
+
