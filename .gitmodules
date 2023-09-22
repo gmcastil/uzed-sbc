@@ -10,3 +10,4 @@
 	path = extern/linux-xlnx
 	url = git@personal:Xilinx/linux-xlnx
 	branch = master
+	ignore = dirty
