@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Find a bootgen
+# Find a kernel
+# Find a device tree
+# Find a FSBL ELF
+# Find a U-Boot ELF
+
+# Make a boot directory
+
+# Copy the kernel
+# Copy the device tree
+# Make a BOOT.BIN with U-Boot and FSBL
+
+# Create an extlinux.conf file
+
+
