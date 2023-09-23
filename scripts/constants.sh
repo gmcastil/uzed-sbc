@@ -1,13 +1,18 @@
 #!/bin/bash
 
+# Project constants
+export UZED_SBC_ARCH="arm"
+export UZED_SBC_LINUX="uImage"
+
 # Directories
 export UZED_SBC_EXTERN_DIR="../extern"
 export UZED_SBC_BUILD_DIR="../build"
+export UZED_SBC_IMAGE_DIR="../images"
 
 export UZED_SBC_LINUX_DIR="${UZED_SBC_EXTERN_DIR}/linux-xlnx"
 export UZED_SBC_FSBL_DIR=
 export UZED_SBC_UBOOT_DIR="${UZED_SBC_EXTERN_DIR}/u-boot-xlnx"
-export UZED_SBC_DTB_DIR="${UZED_SBC_BUILD_DIR}/device-tree"
+export UZED_SBC_DTB_DIR="${UZED_SBC_BUILD_DIR}/dts"
 
 # Constants for building a Debian root filesystem
 export DEBIAN_ARCH="armhf"

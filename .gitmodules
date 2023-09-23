@@ -11,3 +11,6 @@
 	url = git@personal:Xilinx/linux-xlnx
 	branch = master
 	ignore = dirty
+[submodule "extern/embeddedsw"]
+	path = extern/embeddedsw
+	url = git@personal:Xilinx/embeddedsw

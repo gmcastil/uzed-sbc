@@ -1,22 +1,4 @@
 #!/bin/bash
-<<<<<<< HEAD
-
-# Find a bootgen
-# Find a kernel
-# Find a device tree
-# Find a FSBL ELF
-# Find a U-Boot ELF
-
-# Make a boot directory
-
-# Copy the kernel
-# Copy the device tree
-# Make a BOOT.BIN with U-Boot and FSBL
-
-# Create an extlinux.conf file
-
-
-=======
 #
 # Create directory containing Microzed boot files and images
 
@@ -60,9 +42,27 @@ fi
 # Find kernel modules
 
 # Find a device tree
+if [[ ! -f "${UZED_SBC_DTB_DIR}/system.dtb" ]]; then
+    err "No FDT blob found in $(readlink -f "${UZED_SBC_DTB_DIR}")"
+    ready_check=1
+fi
 
 if [[ "${ready_check}" -ne 0 ]]; then
     err "One or more required dependancies are missing"
     exit 1
 fi
->>>>>>> 535b4428df4a23eaf04d694cb6c965ba0d9ae477
+
+# Find a bootgen
+# Find a kernel
+# Find a device tree
+# Find a FSBL ELF
+# Find a U-Boot ELF
+
+# Make a boot directory
+
+# Copy the kernel
+# Copy the device tree
+# Make a BOOT.BIN with U-Boot and FSBL
+
+# Create an extlinux.conf file
+
