@@ -14,3 +14,5 @@
 [submodule "extern/embeddedsw"]
 	path = extern/embeddedsw
 	url = git@personal:Xilinx/embeddedsw
+	branch = xlnx_rel_v2023.1_update
+
