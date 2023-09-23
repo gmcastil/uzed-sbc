@@ -1,0 +1,6 @@
+b_image : {
+	[bootloader]fsbl.elf
+	u-boot.elf
+	[offset=0x2a00000]system.dtb
+}
+
