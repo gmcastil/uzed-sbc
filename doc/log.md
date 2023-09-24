@@ -121,4 +121,149 @@ definitely were. The kernel serial port output was vanishing at some point
 during the boot because I didn't have the `console=ttyPS0,115200` there and
 without the `rootwait` directive, it would completely miss the SD card.
 
+24 September 2023
+-----------------
+I've made a ton of progress in the past week - I switched from buildroot to a
+Debian 12 full operating system derived from debootstrap and that has already
+proven to be a wise decision. This is a project with a lot of development and I
+can't really anticipate the need.
+
+At this point I've gotten the following things accomplished:
+- FSBL built manually using Vitis SDK and the embeddedsw FSBL source code along
+  with `ps7_init.*` files pulled from the exported hardware design
+- U-boot ELF built manually from Xilinx source tree tag `xilinx-v2023.1`
+- Kernel 6.1 built from the Xilinx source tree tag
+  `xlnx_rebase_v6.1_LTS_2023.1_update` (a bit more on the kernel in a second)
+- I have scripts built to gather these components together along with
+  debootstrap and build a root filesystem with an SSH server, build tools, etc.
+- Haven't automated SD card image generation (and I'm not sure that I need to,
+  since I'm happy with what I have no and don't need to do much after booting -
+  still some bugs to probably address later, but for now, I'm good with it).
+
+Programming the FPGA
+~~~~~~~~~~~~~~~~~~~~
+So, this is where I've run into a snag. At some point, the old approach of `cat
+static.bit > /dev/xdevcfg` was removed from the Linux kernel. A more accurate
+way to put it is that the xdevcfg driver was superseded by the fpga_manager
+subsystem instead and the previous driver provided functionality that Xilinx
+apparently had relied on.  I read through the patch review in the LKML that
+discussed this when the Zynq driver was added to the kernel.  There's a couple
+of things that I gleaned from this discussion:
+* Xilinx devices may have hardware limitations on the sizes of the bitstream.
+  Per the LKML, the Zynq requires bitstreams by multiples of 32-bits. Unclear if
+  this is true for other devices like the Ultrascale+
+* I'm not the first one to hate on the Xilinx tools for not being able to
+  consistently and easily generate the required programming files. One of the
+kernel devs had this to say:
+```
+Probably one of the key reasons that the "bit" format is still popular is that 
+getting the Vivado tools to create a proper "bin" that will actually work on 
+the Zynq is about as easy as nailing jelly to a tree. We've been using a 
+simple Python script to do the bit->bin conversion for that reason.
+```
+* First, here's the error message I'm getting in the kernel ring buffer when I
+  try to program the FPGA using the fpga_manager subsystem:
+```
+[Sun Sep 24 01:33:49 2023] fpga_manager fpga0: Error while parsing FPGA image header
+[Sun Sep 24 01:47:04 2023] fpga_manager fpga0: writing uzed_sbc_top.bin to Xilinx Zynq FPGA Manager
+[Sun Sep 24 01:47:04 2023] fpga_manager fpga0: Invalid bitstream, could not find a sync word. Bitstream must be a byte swapped .bin file
+```
+The source code (from my own kernel tree that I built) that is yielding this
+message is from the `drivers/fpga/zynq-fpga.c` source file, which I'm not going
+to reproduce entirely here. The gist of it all is that the fpga manager
+subsystem is refusing to load the bitstream because the .bin I am loading has
+the incorrect byte ordering.  Specifically, the driver code is looking for two
+things: 1) a bitstream that is a multiple of 4 bytes, a hardware limitation on
+how it supports DMA transfers during programming I believe 2) the sync word
+needs to be in the proper orientation, which is what this function is actually
+checking. Aside: pretty cool to see the actual sync word in the blob on the
+disk. Also, per a statement in the patch discussion for the zynq-fpga driver,
+the only difference between the .bit and .bin formats aside from the header that
+apparently matter are the locations of the sync word.
+```c
+/* Sanity check the proposed bitstream. It must start with the sync word in
+ * the correct byte order, and be dword aligned. The input is a Xilinx .bin
+ * file with every 32 bit quantity swapped.
+ */
+static bool zynq_fpga_has_sync(const u8 *buf, size_t count)
+{
+	for (; count >= 4; buf += 4, count -= 4)
+		if (buf[0] == 0x66 && buf[1] == 0x55 && buf[2] == 0x99 &&
+		    buf[3] == 0xaa)
+			return true;
+	return false;
+}
+```
+
+I did a hexdump of my bin file that was naively created with
+`write_bitstream -force  uzed_sbc_top.bin -bin_file` and you can indeed see the 0xAA995566 in the file.
+
+It appears to me that the programming problem is that I have not gotten Vivado
+to give me the correct .bin for a Zynq 7000 that will work with this version of
+the Linux kernel zynq-fpga driver. The root cause seems to be that prior
+versions of Linux supported the xdevcfg interface, which fixed the byte ordering
+problem transparently when users programmed the bitstream by just `cat`ting it
+to a file in /dev/xdevcfg and at some point that functionality was removed and
+replaced with the fpga manager subsystem instead.  It is unclear to me what
+specifically broke and I'm not sure I want to try to understand it - what *is*
+clear is that Xilinx seemed to think that their tools generated the appropriate
+images by default using a single Tcl command and others pointed out that in
+fact, it generates a .bin file but does not perform the byte swapping.  On byte
+swapping, when they use that term, what they are referring to is byte ordering
+within individual 32-bit chunks.  And you can see that from the sync word check.
+In reality, it's actually a good thing for me that they do this check - it isnt
+checking that I did something wrong, but rather that their tools don't generate
+the correct images by default.  If it had just tried to shove a misordered
+stream of bytes into the FPGA, I'd have had no insight into it at all and I'm
+not sure how I would have found it.
+
+Upshot of this is that a) reading the kernel source code was very helpful, and
+having access to the source code myself without having it hidden away under
+layers of Yocto nonsense was invaluable b) the Xilinx people do some really
+questionable things and I'm glad the kernel developers are not enslaved to those
+guys. I get the impression that the kernel developers tolerate the FPGA vendor
+developers because they have a valid use case, but aren't thrilled to support
+it. The FPGA subsystem should be hardware agnostic and the drivers are hit or
+miss it would appear and that's c) I should not generalize from my experience
+with one family to another. The culprit here is the zynq-fpga driver and its
+conflation with the tool version, tcl commands, output product, and device
+family that I'm building for. If I do this for an Ultrascale+ I may have an
+entirely different experience and reading the kernel source code then may very
+well be beneficial.
+
+For reference:
+https://lore.kernel.org/all/1478732303-13718-1-git-send-email-jgunthorpe@obsidianresearch.com/
+
+As is usually the case, I was not the first one to encounter this problem and
+people have thrown some python at the problem.  It looks like the canonical
+solution might be to take the bitstream (.bit) file and use bootgen to generate
+the correct binary.  Obviously, one of the first pieces of software I should
+write natively on my board is a tool to do the byte swapping correctly in C on
+the platform, so that I can take the .bit file from the .xsa and process it into
+the .bin that is required by the fpga driver.  Yikes, I can't believe this
+actually all makes sense to me.
+
+Ok, so it all works now, the FPGA gets programmed, the DONE light goes on, the
+hardware manager connected to the board sees that it is programmed and that
+there is an `hw_axi` core present on the board, which is accurate, since I have
+a JTAG to AXI master in the current hardware build.  So, yeah, that's a big win.
+The whole stack now belongs to me. To get the .bin file in the format I needed,
+I used bootgen along with a .bif of the form:
+```cpp
+bitstream_convert:
+{
+	uzed_sbc_top.bit
+}
+```
+And then ran
+`bootgen -arch zynq -image uzed_sbc_top.bif -process_bitstream bin` which, when
+I hex dumped it, had the proper ordering of the sync word (and diffing it with
+what came out of Vivado looked to be entirely swapped. And by swapped, I mean
+LSB first instead of MSB in each 32-bit word (not reversing the entire file).
+What's odd is that the size that came out differed by one 32-bit value (the
+Vivado version was smaller by 4 bytes).  Tough to know why - the four missing
+bytes appeared to be at the end of the file but I didn't really dig any further.
+For now, I've got an entire working stack from FSBL all the way to programming
+the FPGA manually from Linux that supports my use case (that's a key detail, it
+might not support someone else's).
 
