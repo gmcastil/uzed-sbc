@@ -2,7 +2,9 @@
 
 # Project constants
 export UZED_SBC_ARCH="arm"
-export UZED_SBC_LINUX="uImage"
+export UZED_SBC_PLATFORM="zynq"
+export UZED_SBC_LINUX_IMG="uImage"
+export UZED_SBC_CROSS_COMPILE="arm-linux-gnueabihf-"
 
 # Directories
 export UZED_SBC_EXTERN_DIR="../extern"
@@ -10,8 +12,13 @@ export UZED_SBC_BUILD_DIR="../build"
 export UZED_SBC_IMAGE_DIR="../images"
 
 export UZED_SBC_LINUX_DIR="${UZED_SBC_EXTERN_DIR}/linux-xlnx"
-export UZED_SBC_FSBL_DIR=
+# Placeholder for now until I can build my own FSBL without having to engage
+# with Vitis
+export UZED_SBC_FSBL_DIR="/home/castillo/vitis-workspaces/2023.1/uzed_sbc_fsbl/Debug"
 export UZED_SBC_UBOOT_DIR="${UZED_SBC_EXTERN_DIR}/u-boot-xlnx"
+# TODO More consistent to expect users to build it in the source tree itself
+# (where I can do things like git clean -dfx and so forth) but leave for now so
+# we can get done today.
 export UZED_SBC_DTB_DIR="${UZED_SBC_BUILD_DIR}/dts"
 
 # Constants for building a Debian root filesystem
@@ -42,4 +49,12 @@ export DEBIAN_USER="debian"
 export DEBIAN_PASS="none"
 export DEBIAN_HOSTNAME="uzed-sbc"
 export DEBIAN_SERIAL="ttyPS0"
+
+# Kernel boot arguments to be supplied via extlinux (note that the chosen node
+# in the device tree may have boot arguments as well)
+export UBOOT_BOOTARGS="earlycon console=${DEBIAN_SERIAL},115200 clk_ignore_unused root=/dev/mmcblk0p2 rootwait rw earlyprintk"
+
+# Constants for the BOOT.BIN that will be assembled while building a boot
+# filesystem
+export BOOT_DTB_OFFSET="0x02A00000"
 

@@ -334,8 +334,8 @@ $ make ARCH=arm UIMAGE_LOADADDR=0x8000 uImage >build_$(date +%H%M%S-%m%d%Y).log 
 I would recommend capturing the build log with something like the last line,
 which allows you to use the command history to run the same command, but
 preserve all of the build logs sequentially.
-5. To build the kernel modules, you will need to run that target as well and
-then install them somewhere convenient so that you can transfer them to
+5. To build the kernel modules, you will need to run that target as well
+   and then install them somewhere convenient so that you can transfer them to
 `/lib/modules` on the SD card image or rootfs that is going to get used.
 ```bash
 $ make ARCH=arm UIMAGE_LOADADDR=0x8000 modules
@@ -352,4 +352,13 @@ More Edits
 Need to fix /etc/fstab in the buildroot filesystem
 Adjust kernel command line arguments in the chosen node of the device tree
 :q
+
+Build Process
+-------------
+- Create directories called rootfs and bootfs
+- Create a boot filesystem to drop bootloaders and kernel into
+- Build a root filesystem there to drop everything into
+- Using the prebuilt kernel source tree, do a make headers install and make
+  modules install into the already built root filesystem
+- Create 
 

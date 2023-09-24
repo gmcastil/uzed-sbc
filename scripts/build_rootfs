@@ -26,6 +26,13 @@
 # system kernel. The script attempts to verify that transparent emulation has
 # been set up for the QEMU architecture specified in the build constants.
 
+function usage () {
+    printf 'Usage: %s [ROOTFS]\n\n' "${1}"
+    printf 'Where ROOTFS is the location to build the root filesystem.\n'
+    printf 'An existing directory will be moved prior to creation.\n'
+    return 0
+}
+
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     printf '%s\n' "Script should be executed not sourced" >&2
     return 1
@@ -52,14 +59,22 @@ if [[ ! "${trans_qemu_status}" == "enabled" ]]; then
     exit 1
 fi
 
+if [[ "$#" -eq 0 ]]; then
+    err "Too few arguments provided"
+    usage "${0}"
+    exit 1
+else
+    rootfs="${1}"
+fi
+
 # Move any old root filesystems that might exist
-rootfs="${UZED_SBC_BUILD_DIR}/rootfs.${DEBIAN_ARCH}"
 if [[ -d "${rootfs}" ]]; then
     status "Found an existing directory at ${rootfs}"
     mv "${rootfs}" "${rootfs}_$(timestamp)"
 fi
 
-status "Building Debian root filesystem"
+status "Building Debian root filesystem at ${rootfs}"
+build_log="debootstrap_$(timestamp).log"
 if ! debootstrap \
     --verbose \
     --include "${DEBIAN_INCLUDE}" \
@@ -67,7 +82,7 @@ if ! debootstrap \
     --arch "${DEBIAN_ARCH}" \
     "${DEBIAN_SUITE}" \
     "${rootfs}" \
-    "${DEBIAN_MIRROR}" >"debootstrap_$(timestamp).log" 2>&1; then
+    "${DEBIAN_MIRROR}" >"${build_log}" 2>&1; then
     err "Debootstrap first stage construction failed"
     exit 1
 else
@@ -83,10 +98,15 @@ install -m 644 "constants.sh" "${rootfs}/tmp"
 status "Building Debian second stage"
 if ! LANG=C.UTF-8 chroot "${rootfs}" "/tmp/second_stage"; then
     err "Debootstrap second stage failed"
+    # In cases where the second stage script failed, a proc might still be
+    # mounted and we would like to fail responsibly, so just attempt to umount
+    # it and suppress any warning it yields
+    umount "${rootfs}/proc" >/dev/null 2>&1
+    exit 1
 else
     status "Debootstrap second stage complete"
 fi
-# In cases where the second stage script failed, a proc might still be mounted
-# and we would like to fail responsibly, so just attempt to umount it
-umount "${rootfs}/proc" >/dev/null 2>&1
+
+# Final clean up items
+mv "${build_log}" "${rootfs}"
 

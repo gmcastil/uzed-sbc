@@ -1,6 +1,13 @@
 #!/bin/bash
-#
+
 # Create directory containing Microzed boot files and images
+
+function usage () {
+    printf 'Usage: %s [BOOTFS]\n\n' "${1}"
+    printf 'Where BOOTFS is the location to build the boot filesystem.\n'
+    printf 'An existing directory will be moved prior to creation.\n'
+    return 0
+}
 
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     printf '%s\n' "Script should be executed not sourced" >&2
@@ -13,56 +20,92 @@ source "common.sh" >/dev/null 2>&1 || \
 source "constants.sh" >/dev/null 2>&1 || \
     { err "Could not import constants.sh" >&2; exit 1; }
 
-# First gather up and make sure that all of the necessary files and tools are 
-# accessible
+if [[ "$#" -eq 0 ]]; then
+    err "Too few arguments provided"
+    usage "${0}"
+    exit 1
+else
+    bootfs="${1}"
+fi
+
+# Verify that the input products all exist - it is up to the user to configure
+# and build the kernel, bootloaders, and device tree as they see fit. The build
+# scripts rely upon this being done - we're just going to check for output
+# products. This includes tag or branches of the kernel and bootloader
+# repositories.
 ready_check=0
+
+# This could be either a uImage or zImage - both are bootable by U-Boot
+linux_img="${UZED_SBC_LINUX_DIR}/arch/${UZED_SBC_ARCH}/boot/${UZED_SBC_LINUX_IMG}"
+[[ -f "${linux_img}" ]] || \
+    { err "No kernel image found at ${linux_img}"; ready_check=1; }
+
+uboot_elf="${UZED_SBC_UBOOT_DIR}/u-boot.elf"
+[[ -f "${uboot_elf}" ]] || \
+    { err "No U-Boot ELF found at ${uboot_elf}"; ready_check=1; }
+
+fsbl_elf="${UZED_SBC_FSBL_DIR}/uzed_sbc_fsbl.elf"
+[[ -f "${fsbl_elf}" ]] || \
+    { err "No FSBL found at ${fsbl_elf}"; ready_check=1; }
+
+fdt_blob="${UZED_SBC_DTB_DIR}/system.dtb"
+[[ -f "${fdt_blob}" ]] || \
+    { err "No flattened device tree blob found at ${fdt_blob}"; ready_check=1; }
 
 # Check for bootgen being present
 command -v bootgen >/dev/null 2>&1 || \
-    { depends_on "bootgen"; exit 1; }
+    { depends_on "bootgen"; ready_check=1; }
 
-# Find the FSBL ELF
-if [[ ! -f "${UZED_SBC_FSBL_DIR}/fsbl.elf" ]]; then
-    err "No FSBL ELF found in $(readlink -f "${UZED_SBC_FSBL_DIR}")"
-    ready_check=1
-fi
-
-# Find U-Boot ELF
-if [[ ! -f "${UZED_SBC_UBOOT_DIR}/u-boot.elf" ]]; then
-    err "No U-Boot ELF found in $(readlink -f "${UZED_SBC_UBOOT_DIR}")"
-    ready_check=1
-fi
-
-# Find a kernel uImage
-if [[ ! -f "${UZED_SBC_LINUX_DIR}/uImage" ]]; then
-    err "No kernel uImage found in $(readlink -f "${UZED_SBC_LINUX_DIR}")"
-    ready_check=1
-fi
-
-# Find kernel modules
-
-# Find a device tree
-if [[ ! -f "${UZED_SBC_DTB_DIR}/system.dtb" ]]; then
-    err "No FDT blob found in $(readlink -f "${UZED_SBC_DTB_DIR}")"
-    ready_check=1
-fi
-
-if [[ "${ready_check}" -ne 0 ]]; then
+# Final ready check prior to getting started with the long process of building a
+# root filesystem, installing the kernel headers and modules, and generating
+# actual SD images
+if [[ "${ready_check}" -eq 0 ]]; then
+    status "All output products are ready."
+else
     err "One or more required dependancies are missing"
     exit 1
 fi
 
-# Find a bootgen
-# Find a kernel
-# Find a device tree
-# Find a FSBL ELF
-# Find a U-Boot ELF
+# Move any old boot filesystems that might exist
+if [[ -d "${bootfs}" ]]; then
+    status "Found an existing directory at ${bootfs}"
+    mv "${bootfs}" "${bootfs}_$(timestamp)"
+fi
 
-# Make a boot directory
+status "Building boot filesystem at ${bootfs}"
 
-# Copy the kernel
-# Copy the device tree
-# Make a BOOT.BIN with U-Boot and FSBL
+mkdir "${bootfs}"
+mkdir "${bootfs}/extlinux"
 
-# Create an extlinux.conf file
+install -m 600 "${linux_img}" "${bootfs}"
+install -m 600 "${fdt_blob}" "${bootfs}"
+
+cat > "${bootfs}/extlinux/extlinux.conf" << EOF
+LABEL Linux
+    KERNEL /${UZED_SBC_LINUX_IMG}
+    FDT    /system.dtb
+    APPEND ${UBOOT_BOOTARGS}
+EOF
+
+status "Running bootgen"
+cat > "${bootfs}/boot.bif" << EOF
+b_image : {
+        [bootloader]${fsbl_elf}
+        ${uboot_elf}
+        [offset=${BOOT_DTB_OFFSET}]${fdt_blob}
+    }
+EOF
+
+# Xilinx doesn't allow us to specify the location of the log file, so just
+# capture all of the output from bootgen and delete the log file it leaves
+# behind
+bootgen \
+    -arch "${UZED_SBC_PLATFORM}" \
+    -image "${bootfs}/boot.bif" \
+    -log trace \
+    -o "${bootfs}/BOOT.BIN" >"${bootfs}/bootgen.log" 2>&1
+
+# Get rid of a couple of files that were created in the process
+rm -f bootgen_log.txt
+rm -f boot.bif
 

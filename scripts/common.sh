@@ -8,7 +8,7 @@ function timestamp () {
 function err () {
     local msg
     msg="${1}"
-    printf 'ERROR: [%s] %s\n' "$(timestamp)" "${msg}" >&2
+    printf 'ERROR:  [%s] %s\n' "$(timestamp)" "${msg}" >&2
     return 0
 }
 

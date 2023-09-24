@@ -85,15 +85,15 @@ useradd \
     "${DEBIAN_USER}"
 
 passwd "${DEBIAN_USER}" << EOF
-"${DEBIAN_PASS}"
-"${DEBIAN_PASS}"
+${DEBIAN_PASS}
+${DEBIAN_PASS}
 EOF
 
-echo "${DEBIAN_USER}  ALL=NOPASSD: ALL" >> /etc/sudoers
+echo "${DEBIAN_USER}  ALL=NOPASSWD: ALL" >> /etc/sudoers
 
 # Resynchronize the package index files prior to installing the SSH server
 # packages and configuration
-apt-get update >> "${build_log}"
+apt-get update >> "${build_log}" 2>&1
 
 # Set up SSH server using the tasksel package (which requires /proc to be
 # mounted for some reason) along with the standard packages we would expect
@@ -124,10 +124,12 @@ WantedBy=multi-user.target
 EOF
 
 # Enable the new service
-systemctl enable regenerate_ssh_host_keys >> "${build_log}"
+systemctl enable regenerate_ssh_host_keys >> "${build_log}" 2>&1
 
 # Some final things to do while still in the chroot environment
-ldconfig >> "${build_log}"
-apt-get clean >> "${build_log}"
-rm -f /tmp/*
+{
+    ldconfig --verbose
+    apt-get clean
+    rm -fv /tmp/*
+} >> "${build_log}" 2>&1
 

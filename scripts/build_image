@@ -1,0 +1,72 @@
+#!/bin/bash
+
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    printf '%s\n' "Script should be executed not sourced" >&2
+    return 1
+fi
+if [[ "${EUID}" -ne 0 ]]; then
+    printf '%s\n' "Script must be run as root" >&2
+    exit 1
+fi
+
+source "common.sh" >/dev/null 2>&1 || \
+    { printf '%s\n' "Could not import common.sh" >&2; exit 1; }
+
+source "constants.sh" >/dev/null 2>&1 || \
+    { err "Could not import constants.sh" >&2; exit 1; }
+
+# Check to make sure that the GNU toolchain and Vitis tools are in the PATH
+command -v "${UZED_SBC_CROSS_COMPILE}gcc" >/dev/null 2>&1 || \
+    { err "No cross compiler found in PATH."; exit 1; }
+command -v bootgen >/dev/null 2>&1 || \
+    { err "Bootgen not found in PATH."; exit 1; }
+
+# Create a boot filesystem
+bootfs="${UZED_SBC_BUILD_DIR}/bootfs.${DEBIAN_ARCH}"
+if [[ "${USE_EXISTING_BOOTFS}" -eq 1 && -d "${bootfs}" ]]; then
+    status "Using existing bootfs at $(readlink -f "${bootfs}")"
+else
+    if ! "./build_bootfs" "${bootfs}"; then
+        err "Could not build boot filesystem"
+        exit 1
+    fi
+fi
+
+# Build root filesystem
+rootfs="${UZED_SBC_BUILD_DIR}/rootfs.${DEBIAN_ARCH}"
+if [[ "${USE_EXISTING_ROOTFS}" -eq 1 && -d "${rootfs}" ]]; then
+    status "Using existing rootfs at $(readlink -f "${rootfs}")"
+else
+    if ! "./build_rootfs" "${rootfs}"; then
+        err "Could not build root filesystem"
+        exit 1
+    fi
+fi
+
+# Install kernel headers and modules from the existing build tree
+pushd "${UZED_SBC_LINUX_DIR}"
+# Use the existence of a vmlinux binary to indicate that something was actually
+# built here before proceeding
+if [[ ! -f "vmlinux" ]]; then
+    err "No vmlinux binary found in ${UZED_SBC_LINUX_DIR}"
+    exit 1
+else
+    make \
+        ARCH="${UZED_SBC_ARCH}" \
+        INSTALL_HDR_PATH="${UZED_SBC_BUILD_DIR}/rootfs.${DEBIAN_ARCH}/usr" \
+        headers_install || \
+        { err "Could not install kernel headers"; exit 1; }
+    make \
+        ARCH="${UZED_SBC_ARCH}" \
+        CROSS_COMPILE="${UZED_SBC_CROSS_COMPILE}" \
+        INSTALL_MOD_PATH="${UZED_SBC_BUILD_DIR}/rootfs.${DEBIAN_ARCH}" \
+        modules || \
+        { err "Could not build kernel modules"; exit 1; }
+    make \
+        ARCH="${UZED_SBC_ARCH}" \
+        CROSS_COMPILE="${UZED_SBC_CROSS_COMPILE}" \
+        INSTALL_MOD_PATH="${UZED_SBC_BUILD_DIR}/rootfs.${DEBIAN_ARCH}" \
+        modules_install || \
+        { err "Could not install kernel modules"; exit 1; }
+fi
+
