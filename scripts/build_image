@@ -43,8 +43,12 @@ else
     fi
 fi
 
+# Going to need the full path for the root filesystem when we start running
+# things like `make headers_install` from the kernel source tree
+rootfs="$(readlink -f "${rootfs}")"
+
 # Install kernel headers and modules from the existing build tree
-pushd "${UZED_SBC_LINUX_DIR}"
+pushd "${UZED_SBC_LINUX_DIR}" >/dev/null
 # Use the existence of a vmlinux binary to indicate that something was actually
 # built here before proceeding
 if [[ ! -f "vmlinux" ]]; then
@@ -53,20 +57,21 @@ if [[ ! -f "vmlinux" ]]; then
 else
     make \
         ARCH="${UZED_SBC_ARCH}" \
-        INSTALL_HDR_PATH="${UZED_SBC_BUILD_DIR}/rootfs.${DEBIAN_ARCH}/usr" \
+        INSTALL_HDR_PATH="${rootfs}/usr" \
         headers_install || \
         { err "Could not install kernel headers"; exit 1; }
     make \
         ARCH="${UZED_SBC_ARCH}" \
         CROSS_COMPILE="${UZED_SBC_CROSS_COMPILE}" \
-        INSTALL_MOD_PATH="${UZED_SBC_BUILD_DIR}/rootfs.${DEBIAN_ARCH}" \
+        INSTALL_MOD_PATH="${rootfs}" \
         modules || \
         { err "Could not build kernel modules"; exit 1; }
     make \
         ARCH="${UZED_SBC_ARCH}" \
         CROSS_COMPILE="${UZED_SBC_CROSS_COMPILE}" \
-        INSTALL_MOD_PATH="${UZED_SBC_BUILD_DIR}/rootfs.${DEBIAN_ARCH}" \
+        INSTALL_MOD_PATH="${rootfs}" \
         modules_install || \
         { err "Could not install kernel modules"; exit 1; }
 fi
+popd >/dev/null
 
