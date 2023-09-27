@@ -267,3 +267,30 @@ For now, I've got an entire working stack from FSBL all the way to programming
 the FPGA manually from Linux that supports my use case (that's a key detail, it
 might not support someone else's).
 
+Next step is to engage the block RAM that is in the FPGA and allegedly exposed
+by the device tree.  I have no idea where to begin, aside from the BRAM access
+page in the Xilinx wiki.  But, at this point, my next goal is:
+- Write some Tcl commands to load a pattern to the BRAM from JTAG and read it
+  back via JTAG
+- Then write some code on the board to let me read the same pattern from Linux
+- Then write some code to set a pattern and read the pattern back and check
+- Then write some code to read / write sections of the two memories and hammer
+  away on the BRAM and AXI interconnect logic
+- At that point, the SBC ROM and RAM should be pretty solid.
+
+The win criteria for this is that I do an overnight run of memory accesses
+between the two block RAM from Linux without errors.  A summary of a few billion
+memory accesses between the two memories is what I'm expecting.  An interesting
+diversion would be to spawn two threads that are hammering away on the two
+memories separately.
+
+Once that's done, then we'd start looking at putting some hardware on the other
+end to talk to, probably a control register interface for the SBC.
+
+Couple questions - why does /proc/meminfo not show the complete amount of DDR
+memory? What is the offset of DDR memory and why is it not in the device tree?
+Are level shifters enabled? Can I discover this from userspace and alert the
+user during startup?
+
+User space driver for memory
+
