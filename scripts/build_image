@@ -21,6 +21,13 @@ command -v "${UZED_SBC_CROSS_COMPILE}gcc" >/dev/null 2>&1 || \
 command -v bootgen >/dev/null 2>&1 || \
     { err "Bootgen not found in PATH."; exit 1; }
 
+# Check for some other tools that need to be installed - bmaptool for instance
+# isn't usually installed by default
+command -v bmaptool >/dev/null 2>&1 || \
+    { depends_on bmaptool; exit 1; }
+command -v debootstrap >/dev/null 2>&1 || \
+    { depends_on debootstrap; exit 1; }
+
 # Create a boot filesystem
 bootfs="${UZED_SBC_BUILD_DIR}/bootfs"
 if [[ "${USE_EXISTING_BOOTFS}" -eq 1 && -d "${bootfs}" ]]; then
@@ -69,12 +76,17 @@ else
         { err "Could not install kernel modules"; exit 1; }
 fi
 
-# Quick check to make sure nothing has gone wrong
+# Quick check to make sure nothing has gone wrong before building SD card images
 if [[ ! -d "${bootfs}" || ! -d "${rootfs}" ]]; then
     err "Unable to create root or boot partions."
     exit 1
 fi
+if ! "./build_sd" "${bootfs}" "${rootfs}"; then
+    err "Could not build SD card images"
+    exit 1
+else
+    status "SD card images built successfully"
+fi
 
-
-
+exit 0
 

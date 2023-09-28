@@ -3,6 +3,7 @@
 # Project constants
 export UZED_SBC_ARCH="arm"
 export UZED_SBC_PLATFORM="zynq"
+export UZED_SBC_BOARD="uzed"
 export UZED_SBC_LINUX_IMG="uImage"
 export UZED_SBC_CROSS_COMPILE="arm-linux-gnueabihf-"
 
@@ -57,4 +58,10 @@ export UBOOT_BOOTARGS="earlycon console=${DEBIAN_SERIAL},115200 clk_ignore_unuse
 # Constants for the BOOT.BIN that will be assembled while building a boot
 # filesystem
 export BOOT_DTB_OFFSET="0x02A00000"
+
+# Constants for generating SD card images
+export UZED_SBC_SD_IMG_SIZE=4
+export UZED_SBC_SD_SFDISK="mmcblk0.sfdisk"
+export UZED_SBC_SD_PART_BOOT="p1"
+export UZED_SBC_SD_PART_ROOT="p2"
 
