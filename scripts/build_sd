@@ -1,0 +1,184 @@
+#!/bin/bash
+
+function usage () {
+    printf 'Usage: %s [BOOT_DIR] [ROOT_DIR]\n' "${1}"
+    return 0
+}
+
+
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    printf '%s\n' "Script should be executed not sourced" >&2
+    return 1
+fi
+if [[ "${EUID}" -ne 0 ]]; then
+    printf '%s\n' "Script must be run as root" >&2
+    exit 1
+fi
+
+source "common.sh" >/dev/null 2>&1 || \
+    { printf '%s\n' "Could not import common.sh" >&2; exit 1; }
+
+source "constants.sh" >/dev/null 2>&1 || \
+    { err "Could not import constants.sh" >&2; exit 1; }
+
+# Check for bmap tools
+command -v bmaptool >/dev/null 2>&1 || \
+    { depends_on bmaptool; exit 1; }
+
+if [[ "$#" != 2 ]]; then
+    usage "${0}"
+    exit 1
+fi
+
+# Check that the first argument is a directory suitable for mounting at /boot
+# and contains a kernel image of some sort
+if [[ -d "${1}" && -f "${1}/${UZED_SBC_LINUX_IMG}" ]]; then
+    bootfs="$(readlink -f "${1}")"
+    status "Found boot directory at ${bootfs}"
+else
+    err "Could not find directory suitable for booting at ${1}"
+fi
+
+# Check that the second argument is a directory suitable for mounting at /root
+# and contains a mount point for a bootfs
+if [[ -d "${2}" && -d "${2}/boot" ]]; then
+    rootfs="$(readlink -f "${2}")"
+    status "Found root directory at ${rootfs}"
+else
+    err "Could not find directory suitable for booting at ${2}"
+fi
+
+# Makes sense to check this too - if we don't have it, a Debian rootfs was
+# probably not created properly
+if ! deb_ver="$(cat "${rootfs}/etc/debian_version" 2>/dev/null)"; then
+    err "Could not find directory suitable for booting at ${rootfs}"
+    exit 1
+fi
+
+# The names get confusing here - we're going to wind up with three output files
+# in the build directory:
+#
+#   filename.bmap     - the input file to bmap-tools
+#   filename.img.xz   - the compressed image file
+#   filename.md5      - hash file for checking with `md5sum -c filename.md5`
+# 
+# The raw image file will be created and eventually discarded after compression
+# is complete
+sd_image="uzed-sbc-$(date +%m-%d-%Y)-${UZED_SBC_SD_IMG_SIZE}GB.img"
+sd_bmap="${sd_image%img}bmap"
+sd_image_xz="${sd_image}.xz"
+sd_md5="${sd_image%img}md5"
+
+# Check to make sure that the file exists prior to allocating a giant amount of
+# space on disk
+if [[ ! -f "${UZED_SBC_SD_SFDISK}" ]]; then
+    err "Could not find partitioning information at ${UZED_SBC_SD_SFDISK}"
+    exit 1
+fi
+# Now create a file that we're going to partition in the desired fashion
+fallocate -l "${UZED_SBC_SD_IMG_SIZE}G" "${UZED_SBC_BUILD_DIR}/${sd_image}" || {
+    err "Could not allocate space for SD image"
+    exit 1
+}
+sfdisk "${UZED_SBC_BUILD_DIR}/${sd_image}" < "${UZED_SBC_SD_SFDISK}" || {
+    err "Could not partition file per the provided sfdisk dump"
+    rm -f "${UZED_SBC_BUILD_DIR}/${sd_image}";
+    exit 1
+}
+
+if ! loop_dev="$(losetup -Pf --show "${UZED_SBC_BUILD_DIR}/${sd_image}")"; then
+    err "Could not obtain a loopback device."
+    exit 1
+else
+    status "Using loopback device ${loop_dev}"
+fi
+
+# At this point, files like /dev/loopN and /dev/loopNp1 should have been
+# created and are able to have filesystems create on them
+bootfs_part="${loop_dev}${UZED_SBC_SD_PART_BOOT}"
+if [[ -b "${bootfs_part}" ]]; then
+    if mkfs.vfat -F 32 -n "BOOT" "${bootfs_part}"; then
+        status "Created FAT32 filesystem at ${bootfs_part}"
+    else
+        err "Could not create FAT32 filesystem at ${bootfs_part}"
+        exit 1
+    fi
+else
+    err "No block device found at ${bootfs_part}"
+    exit 1
+fi
+rootfs_part="${loop_dev}${UZED_SBC_SD_PART_ROOT}"
+if [[ -b "${rootfs_part}" ]]; then
+    if mkfs.ext4 -L "root" -O ^huge_file "${rootfs_part}"; then
+        status "Created EXT4 filesystem at ${rootfs_part}"
+    else
+        err "Could not create EXT4 filesystem at ${rootfs_part}"
+        exit 1
+    fi
+else
+    err "No block device found at ${rootfs_part}"
+    exit 1
+fi
+
+# Now we mount these two filesystems as they would be in a regular system prior
+# to transferring files
+tmp_mnt="${UZED_SBC_BUILD_DIR}/mnt"
+status "Creating temporary mount point at ${tmp_mnt}"
+mkdir -p "${tmp_mnt}"
+
+mount "${rootfs_part}" "${tmp_mnt}"
+mkdir "${tmp_mnt}/boot"
+mount "${bootfs_part}" "${tmp_mnt}/boot"
+chown root:root "${tmp_mnt}"
+
+status "Copying root filesystem to "$(readlink -f "${tmp_mnt}")""
+rsync -az --numeric-ids "${rootfs}"/* "${tmp_mnt}/"
+status "Copying boot filesystem to "$(readlink -f "${tmp_mnt}/boot")""
+rsync -az --numeric-ids "${bootfs}"/* "${tmp_mnt}/boot/"
+
+# Have to do this or trying to umount filesystems later will fail because one or
+# both are busy
+status "Syncing filesystems"
+sync
+
+# Removal is the reverse of installation...
+umount "${tmp_mnt}/boot"
+umount "${tmp_mnt}"
+# This should never fail, but if it does, loopbacks are still present and things
+# are in an unstable state and should be fixed before attempting to continue.
+if ! rmdir "${tmp_mnt}"; then
+    err "Could not remove ${tmp_mnt}. Loopback devices may still be present."
+    exit 1
+else
+    losetup --detach "${loop_dev}"
+fi
+
+# Now we can create images for bmap-tools to use (so much superior to dd)
+# alongside the original image file
+if ! bmaptool create \
+    --output "${UZED_SBC_BUILD_DIR}/${sd_bmap}" \
+    "${UZED_SBC_BUILD_DIR}/${sd_image}"; then
+    err "Could not create BMAP file at ${UZED_SBC_BUILD_DIR}/${sd_image}"
+    exit 1
+fi
+# Use all the cores on the machine to compress the image file, overwrite
+# anything that already exists so that we never get stale images by accident,
+# sets the compression level, and replaces the uncompressed file
+xz -z -f -8 -T0 "${UZED_SBC_BUILD_DIR}/${sd_image}"
+# This should have replaced the raw image file with the compressed image so
+# rather than checking for success, we just check for the existence of the
+# compressed image
+if [[ ! -f "${UZED_SBC_BUILD_DIR}/${sd_image_xz}" ]]; then
+    err "Could not create .xz archive at ${UZED_SBC_BUILD_DIR}/${sd_image_xz}"
+    exit 1
+fi
+# Now we temporarily change to the build directory, MD5 the image files, and
+# then switch back
+pushd "${UZED_SBC_BUILD_DIR}" >/dev/null
+md5sum "${sd_image_xz}" "${sd_bmap}" > "${sd_md5}"
+popd >/dev/null
+
+# Image complete
+status "Image creation completed"
+exit 0
+
