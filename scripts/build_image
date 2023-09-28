@@ -22,7 +22,7 @@ command -v bootgen >/dev/null 2>&1 || \
     { err "Bootgen not found in PATH."; exit 1; }
 
 # Create a boot filesystem
-bootfs="${UZED_SBC_BUILD_DIR}/bootfs.${DEBIAN_ARCH}"
+bootfs="${UZED_SBC_BUILD_DIR}/bootfs"
 if [[ "${USE_EXISTING_BOOTFS}" -eq 1 && -d "${bootfs}" ]]; then
     status "Using existing bootfs at $(readlink -f "${bootfs}")"
 else
@@ -33,7 +33,7 @@ else
 fi
 
 # Build root filesystem
-rootfs="${UZED_SBC_BUILD_DIR}/rootfs.${DEBIAN_ARCH}"
+rootfs="${UZED_SBC_BUILD_DIR}/rootfs"
 if [[ "${USE_EXISTING_ROOTFS}" -eq 1 && -d "${rootfs}" ]]; then
     status "Using existing rootfs at $(readlink -f "${rootfs}")"
 else
@@ -43,35 +43,38 @@ else
     fi
 fi
 
-# Going to need the full path for the root filesystem when we start running
-# things like `make headers_install` from the kernel source tree
-rootfs="$(readlink -f "${rootfs}")"
-
-# Install kernel headers and modules from the existing build tree
-pushd "${UZED_SBC_LINUX_DIR}" >/dev/null
+# Install kernel headers and modules from the existing build tree.
 # Use the existence of a vmlinux binary to indicate that something was actually
 # built here before proceeding
-if [[ ! -f "vmlinux" ]]; then
+if [[ ! -f "${UZED_SBC_LINUX_DIR}/vmlinux" ]]; then
     err "No vmlinux binary found in ${UZED_SBC_LINUX_DIR}"
     exit 1
 else
-    make \
+    make -C "${UZED_SBC_LINUX_DIR}" \
         ARCH="${UZED_SBC_ARCH}" \
         INSTALL_HDR_PATH="${rootfs}/usr" \
         headers_install || \
         { err "Could not install kernel headers"; exit 1; }
-    make \
+    make -C "${UZED_SBC_LINUX_DIR}" \
         ARCH="${UZED_SBC_ARCH}" \
         CROSS_COMPILE="${UZED_SBC_CROSS_COMPILE}" \
         INSTALL_MOD_PATH="${rootfs}" \
         modules || \
         { err "Could not build kernel modules"; exit 1; }
-    make \
+    make -C "${UZED_SBC_LINUX_DIR}" \
         ARCH="${UZED_SBC_ARCH}" \
         CROSS_COMPILE="${UZED_SBC_CROSS_COMPILE}" \
         INSTALL_MOD_PATH="${rootfs}" \
         modules_install || \
         { err "Could not install kernel modules"; exit 1; }
 fi
-popd >/dev/null
+
+# Quick check to make sure nothing has gone wrong
+if [[ ! -d "${bootfs}" || ! -d "${rootfs}" ]]; then
+    err "Unable to create root or boot partions."
+    exit 1
+fi
+
+
+
 
