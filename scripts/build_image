@@ -59,19 +59,19 @@ if [[ ! -f "${UZED_SBC_LINUX_DIR}/vmlinux" ]]; then
 else
     make -C "${UZED_SBC_LINUX_DIR}" \
         ARCH="${UZED_SBC_ARCH}" \
-        INSTALL_HDR_PATH="${rootfs}/usr" \
+        INSTALL_HDR_PATH="../${rootfs}/usr" \
         headers_install || \
         { err "Could not install kernel headers"; exit 1; }
     make -C "${UZED_SBC_LINUX_DIR}" \
         ARCH="${UZED_SBC_ARCH}" \
         CROSS_COMPILE="${UZED_SBC_CROSS_COMPILE}" \
-        INSTALL_MOD_PATH="${rootfs}" \
+        INSTALL_MOD_PATH="../${rootfs}" \
         modules || \
         { err "Could not build kernel modules"; exit 1; }
     make -C "${UZED_SBC_LINUX_DIR}" \
         ARCH="${UZED_SBC_ARCH}" \
         CROSS_COMPILE="${UZED_SBC_CROSS_COMPILE}" \
-        INSTALL_MOD_PATH="${rootfs}" \
+        INSTALL_MOD_PATH="../${rootfs}" \
         modules_install || \
         { err "Could not install kernel modules"; exit 1; }
 fi
