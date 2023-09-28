@@ -6,7 +6,6 @@ scripts/debootstrap_*.log
 
 # Build directories
 ./build/
-./images/
 ./exports/
 
 # Xilinx stuff
