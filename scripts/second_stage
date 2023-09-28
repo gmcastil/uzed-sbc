@@ -48,10 +48,14 @@ if ! /debootstrap/debootstrap \
 fi
 
 # Set up /etc/fstab
+boot_part="/dev/mmcblk0${UZED_SBC_SD_PART_BOOT}"
+root_part="/dev/mmcblk0${UZED_SBC_SD_PART_ROOT}"
+# Leave the spaces alone here so that after variable expansion this is still
+# formatted appropriately
 cat > /etc/fstab << EOF
 # Device            Mount       Type        Options         Dump    Check
-/dev/mmcblk0p2      /           ext4        defaults        0       1
-/dev/mmcblk0p1      /boot       vfat        nosuid,nodev    0       2
+$root_part      ext4        defaults        0       1
+$boot_part      /boot       vfat        nosuid,nodev    0       2
 proc                /proc       proc        defaults        0       0
 sys                 /sys        sysfs       defaults        0       0
 config              /config     configfs    defaults        0       0
