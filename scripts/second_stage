@@ -54,7 +54,7 @@ root_part="/dev/mmcblk0${UZED_SBC_SD_PART_ROOT}"
 # formatted appropriately
 cat > /etc/fstab << EOF
 # Device            Mount       Type        Options         Dump    Check
-$root_part      ext4        defaults        0       1
+$root_part      /           ext4        defaults        0       1
 $boot_part      /boot       vfat        nosuid,nodev    0       2
 proc                /proc       proc        defaults        0       0
 sys                 /sys        sysfs       defaults        0       0
