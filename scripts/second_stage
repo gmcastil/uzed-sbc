@@ -85,6 +85,7 @@ EOF
 # Set up a non-root user with sudoer privileges
 useradd \
     -G adm,dialout,kmem,cdrom,floppy,audio,dip,video,netdev,plugdev,staff,i2c \
+    --create-home \
     --shell /bin/bash \
     "${DEBIAN_USER}"
 
