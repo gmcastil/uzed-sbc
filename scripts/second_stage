@@ -41,6 +41,8 @@ source "/tmp/common.sh" >/dev/null 2>&1 || \
 source "/tmp/constants.sh" >/dev/null 2>&1 || \
     { err "Could not import /tmp/constants.sh"; exit 1; }
 
+export TERM=linux
+
 build_log="second-stage-$(timestamp).log"
 if ! /debootstrap/debootstrap \
     --second-stage >"${build_log}" 2>&1; then
@@ -50,6 +52,9 @@ fi
 # Set up /etc/fstab
 boot_part="/dev/mmcblk0${UZED_SBC_SD_PART_BOOT}"
 root_part="/dev/mmcblk0${UZED_SBC_SD_PART_ROOT}"
+# Need the root partition number later so that we can resize it
+root_partn="${UZED_SBC_SD_PART_ROOT#p}"
+
 # Leave the spaces alone here so that after variable expansion this is still
 # formatted appropriately
 cat > /etc/fstab << EOF
@@ -130,6 +135,26 @@ EOF
 
 # Enable the new service
 systemctl enable regenerate_ssh_host_keys >> "${build_log}" 2>&1
+
+# Resize the root partition on first boot, since we will likely have more space
+# available to us and need to use it for development purposes
+cat > /etc/systemd/system/resize_rootfs.service << EOF
+[Unit]
+Description=Resize root file system
+After=basic.target
+
+[Service]
+Type=oneshot
+ExecStartPre=-/usr/bin/growpart /dev/mmcblk0 ${root_partn}
+ExecStart=-/sbin/resize2fs /dev/mmcblk0${root_part}
+ExecStartPost=/bin/systemctl disable resize_rootfs
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable the new service
+systemctl enable resize_rootfs >> "${build_log}" 2>&1
 
 # Some final things to do while still in the chroot environment
 {
