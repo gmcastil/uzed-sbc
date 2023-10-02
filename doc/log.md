@@ -294,3 +294,41 @@ user during startup?
 
 User space driver for memory
 
+02 October 2023
+---------------
+Another big success - have a kernel module loaded that triggers messgaes upon
+removal and insertion (which I had earlier) but now it does it in response to
+the platform subsystem matching it to my own entry in the device tree.
+
+Really quickly, since I'm in a hurry, I needed an entry that matched my
+compatibility string in my kernel module. So I created my own basic.dtsi and
+then added that to the set of the stuff that I was compiling into my device
+tree.  At some point, I might want to just put my entire device tree under
+revision control and then include different files for different configurations,
+but for now, i'll stick to what I've got which is tied to the Xilinx stuff.
+Actually, that might be a better idea since it can change based upon the
+exported hardware definition and I do not want to touch that stuff because it
+can affect the FSBL (mismatches between the FSBL initiatalization code and my
+device tree is not something i want to debug).
+
+At any rate, to incoprorate what i have now, I'm just adding a single line to
+the top level `system-top.dts` file to include a `basic.dtsi` which I'm going to
+store in my source directory.  So, changes to my driver and device tree entry
+will be tracked, but i dont have to put the entire device tree under revision
+control yet. Also, at some point i'll want to make a makefile to rebuild the
+device tree when the inputs change.  For now, I'll have to manually make the
+changes.
+
+Seriously - big win.  Also, some things to keep in mind that were absolutely
+badass.  First, huge positive move to build my own FSBL and U-boot and kernel
+and cut myself off from the Petalinux nonsense. Second, huge move to use
+extlinux instead of boot.scr or FSBL programming, etc. Putting the kernel and
+the device tree and the bootloaders in separate places and using distro boot
+allowed me to very quickly rebuild a device tree, create an experimental boot
+entry in the menu and now I dont have to worry about bricking the board if I
+screw something up. I can easily switch between kernels, device trees, etc. and
+eventually my own modules in `/lib/modules/<uname -r>`.
+
+Not sure how what I'm doing is going to carry over to understanding the Xilinx
+BRAM to Linux interface.  But i'll get there.
+
