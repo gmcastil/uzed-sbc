@@ -1,20 +1,39 @@
 #include <linux/init.h>
+#include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/printk.h>
+#include <linux/uio_driver.h>
 
-#define BASIC_MODNAME		"basic"
+#define BASIC_MODNAME		"xlnx,axi-bram-ctrl-4.1"
 
 static int basic_probe(struct platform_device *pdev)
 {
-	pr_info("Basic module init\n");
+	struct uio_info *info;
+	info = kzalloc(sizeof(struct uio_info), GFP_KERNEL);
+
+	if (info == NULL) {
+		return -ENOMEM;
+	}
+	info->name = "basic uio";
+	info->version = "0.1";
+
+	/* Register this driver with the UIO subsystem */
+	if (uio_register_device(&pdev->dev, info)) {
+		dev_info(&pdev->dev, "Could not register UIO device");
+		goto out_free;
+	}
 	return 0;
+
+out_free:
+	kfree(info);
+	return -1;
 }
 
 static int basic_remove(struct platform_device *pdev)
 {
-	pr_info("Basic module exit\n");
+	dev_info(&pdev->dev, "Basic module exit\n");
 	return 0;
 }
 
@@ -28,7 +47,7 @@ MODULE_DEVICE_TABLE(of, basic_of_match);
 
 /* Create a platform driver for this device */
 static struct platform_driver basic_platform_driver = {
-	/* int (*probe)(struct platform_device *); */
+	/*   int (*probe)(struct platform_device *); */
 	.probe		= basic_probe,
 	/*
 	 * Traditionally the remove callback returned an int which however is
@@ -52,22 +71,19 @@ static struct platform_driver basic_platform_driver = {
 	.shutdown	= NULL,
 	.suspend	= NULL,
 	.resume		= NULL,
-
-	/* struct device_driver driver; */
+	/*   struct device_driver driver; */
 	.driver = {
 		.name		= BASIC_MODNAME,
 		.of_match_table = of_match_ptr(basic_of_match),
 	},
-	/* const struct platform_device_id *id_table; */
+	/*   const struct platform_device_id *id_table; */
 	.id_table	= NULL,
-	/* bool prevent_deferred_probe; */
+	/*   bool prevent_deferred_probe; */
 	.prevent_deferred_probe	= false,
-
-	/* bool driver_managed_dma; */
+	/*   bool driver_managed_dma; */
 	.driver_managed_dma	= false	
 };
 
-/* Register this module as a platform device */
 module_platform_driver(basic_platform_driver);
 
 MODULE_AUTHOR("George Castillo");
