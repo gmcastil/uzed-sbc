@@ -12,7 +12,6 @@
 		compatible = "simple-bus";
 		ranges ;
 		axi_bram_ctrl_0: axi_bram_ctrl@40000000 {
-			/* This is a place holder node for a custom IP, user may need to update the entries */
 			clock-names = "s_axi_aclk";
 			clocks = <&clkc 15>;
 			compatible = "uzed-sbc,axi-bram-ctrl";
@@ -32,26 +31,25 @@
 			xlnx,s-axi-supports-narrow-burst = <0x0>;
 			xlnx,single-port-bram = <0x1>;
 		};
-		axi_bram_ctrl_1: axi_bram_ctrl@42000000 {
-			/* This is a place holder node for a custom IP, user may need to update the entries */
-			clock-names = "s_axi_aclk";
-			clocks = <&clkc 15>;
-			compatible = "uzed-sbc,axi-bram-ctrl";
-			reg = <0x42000000 0x4000>;
-			xlnx,bram-addr-width = <0xc>;
-			xlnx,bram-inst-mode = "EXTERNAL";
-			xlnx,ecc = <0x0>;
-			xlnx,ecc-onoff-reset-value = <0x0>;
-			xlnx,ecc-type = <0x0>;
-			xlnx,fault-inject = <0x0>;
-			xlnx,memory-depth = <0x1000>;
-			xlnx,rd-cmd-optimization = <0x0>;
-			xlnx,read-latency = <0x1>;
-			xlnx,s-axi-ctrl-addr-width = <0x20>;
-			xlnx,s-axi-ctrl-data-width = <0x20>;
-			xlnx,s-axi-id-width = <0xd>;
-			xlnx,s-axi-supports-narrow-burst = <0x0>;
-			xlnx,single-port-bram = <0x1>;
+		/* axi_bram_ctrl_1: axi_bram_ctrl@42000000 {
+		*	clock-names = "s_axi_aclk";
+		*	clocks = <&clkc 15>;
+		*	compatible = "uzed-sbc,axi-bram-ctrl";
+		*	reg = <0x42000000 0x4000>;
+		*	xlnx,bram-addr-width = <0xc>;
+		*	xlnx,bram-inst-mode = "EXTERNAL";
+		*	xlnx,ecc = <0x0>;
+		*	xlnx,ecc-onoff-reset-value = <0x0>;
+		*	xlnx,ecc-type = <0x0>;
+		*	xlnx,fault-inject = <0x0>;
+		*	xlnx,memory-depth = <0x1000>;
+		*	xlnx,rd-cmd-optimization = <0x0>;
+		*	xlnx,read-latency = <0x1>;
+		*	xlnx,s-axi-ctrl-addr-width = <0x20>;
+		*	xlnx,s-axi-ctrl-data-width = <0x20>;
+		*	xlnx,s-axi-id-width = <0xd>;
+		*	xlnx,s-axi-supports-narrow-burst = <0x0>;
+		*	xlnx,single-port-bram = <0x1>; */
 		};
 	};
 };
