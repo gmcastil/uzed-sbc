@@ -1,4 +1,5 @@
 #include <linux/init.h>
+#include <linux/cdev.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/module.h>
@@ -7,21 +8,29 @@
 #include <linux/printk.h>
 #include <linux/types.h>
 
+/* Include extra debug and information messages in the kernel ring buffer */
+#define SBC_DEBUG
 /* Try not to be too board specific */
 #define SBC_MODNAME		"uzed-sbc,axi-bram-ctrl"
-/* Name of the device created in /dev */
-#define SBC_DEVICE_NAME		"sbc"
-
+/* Name of the devices that will be created in /dev */
+#define SBC_DEVICE_NAME		"bram"
+/* Name of the class of device? WTF is this? */
+#define SBC_CLASS_NAME		"sbc"
 /* Maximum number of devices to allocate in /dev */
 #define SBC_MAX_DEVS		10
 
-/*
+static int sbc_open(struct inode *, struct file *);
+static int sbc_release(struct inode *, struct file *);
+
+static struct class *sbc_class;
+static struct device *sbc_device;
+
 static struct file_operations sbc_fops = {
 	.owner		= THIS_MODULE,
 	.open		= sbc_open,
 	.release	= sbc_release,
-}
-
+};
+/*
 	struct module *owner;
 	loff_t (*llseek) (struct file *, loff_t, int);
 	ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
@@ -72,13 +81,19 @@ static struct file_operations sbc_fops = {
  * Note that these are all going to be called from userspace
  */
 
-/* open() */
+static int sbc_open(struct inode *, struct file *)
+{
+	return 0;
+}
 
 /* write() */
 
 /* read() */
 
-/* release() */
+static int sbc_release(struct inode *, struct file *)
+{
+	return 0;
+}
 
 /* ioctl() */
 
@@ -86,22 +101,51 @@ static int sbc_probe(struct platform_device *pdev)
 {
 	int ret;
 	dev_t dev_id;
+	struct cdev *cdev = NULL;
 
 	struct resource *res = NULL;
 	void *base = NULL;
 
-	/* Register a range of device numbers */
+	/* Register a character device */
 	ret = alloc_chrdev_region(&dev_id, 0, SBC_MAX_DEVS, SBC_DEVICE_NAME);
 	if (ret) {
 		dev_err(&pdev->dev, "could not obtain a device ID");
 		return ret;
 	}
+#ifdef SBC_DEBUG
 	dev_info(&pdev->dev, "obtained major number: %d, minor number: %d",
 			MAJOR(dev_id), MINOR(dev_id));
+#endif
+	cdev = cdev_alloc();
+	if (IS_ERR(cdev)) {
+		dev_err(&pdev->dev, "could not initialize character device");
+		dev_err(&pdev->dev, "cdev alloc error: %p", cdev);
+		goto deregister_out;
+	}
+	cdev_init(cdev, &sbc_fops);
+	ret = cdev_add(cdev, dev_id, 1);
+	if (ret) {
+		dev_err(&pdev->dev, "could not add character device");
+		goto cdev_dealloc_out;
+	}
+
+	/* Create the device class */
+	sbc_class = class_create(THIS_MODULE, SBC_CLASS_NAME);
+	if (IS_ERR(sbc_class)) {
+		dev_err(&pdev->dev, "could not create device class");
+		goto cdev_dealloc_out;
+	}
+
+	/* Create the actual device */
+	sbc_device = device_create(sbc_class, NULL, dev_id, NULL, SBC_DEVICE_NAME);
+	if (IS_ERR(sbc_device)) {
+		dev_err(&pdev->dev, "could not create device");
+		goto class_destroy_out;
+	}
 
 	/* Get the device memory range from the device tree */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
+	if (res == NULL) {
 		dev_err(&pdev->dev, "could not get resource %d: ", IORESOURCE_MEM);
 		return -EINVAL;
 	}
@@ -112,11 +156,20 @@ static int sbc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "could not map resource: %pR", res);
 		return PTR_ERR(base);
 	}
-	/* Create a device file in /dev */
+
 	return 0;
+
+class_destroy_out:
+	class_destroy(sbc_class);
+
+cdev_dealloc_out:
+
+deregister_out:
+	unregister_chrdev_region(dev_id, SBC_MAX_DEVS);
 
 	/* free on failure after devm_ioremap() */
 	/* void devm_iounmap(struct device *dev, void __iomem *addr) */
+	return -1;
 }
 
 static int sbc_remove(struct platform_device *pdev)
