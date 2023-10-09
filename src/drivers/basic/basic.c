@@ -1,9 +1,11 @@
+#include <linux/atomic.h>
 #include <linux/init.h>
 #include <linux/cdev.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/printk.h>
 #include <linux/types.h>
@@ -20,14 +22,20 @@
 #define SBC_MAX_DEVS		10
 
 static int sbc_open(struct inode *, struct file *);
+static ssize_t sbc_write (struct file *, const char __user *, size_t, loff_t *);
+static ssize_t sbc_read (struct file *, char __user *, size_t, loff_t *);
 static int sbc_release(struct inode *, struct file *);
 
 static struct class *sbc_class;
 static struct device *sbc_device;
+static void *base;
+static dev_t dev_id;
 
 static struct file_operations sbc_fops = {
 	.owner		= THIS_MODULE,
 	.open		= sbc_open,
+	.read		= sbc_read,
+	.write		= sbc_write,
 	.release	= sbc_release,
 };
 /*
@@ -76,22 +84,31 @@ static struct file_operations sbc_fops = {
 				unsigned int poll_flags);
 */
 
-/*
- * Need to create file_operations struct and register with kernel
- * Note that these are all going to be called from userspace
- */
-
+/* Called when a process tries to open device file (e.g., `cat /dev/bram`) */
 static int sbc_open(struct inode *, struct file *)
 {
+	pr_info("Callback open");
 	return 0;
 }
 
 /* write() */
 
+static ssize_t sbc_write (struct file *, const char __user *, size_t, loff_t *)
+{
+	pr_info("Callback write");
+	return 0;
+}
+
 /* read() */
+static ssize_t sbc_read (struct file *, char __user *, size_t, loff_t *)
+{
+	pr_info("Callback read");
+	return 0;
+}
 
 static int sbc_release(struct inode *, struct file *)
 {
+	pr_info("Callback release");
 	return 0;
 }
 
@@ -100,11 +117,9 @@ static int sbc_release(struct inode *, struct file *)
 static int sbc_probe(struct platform_device *pdev)
 {
 	int ret;
-	dev_t dev_id;
 	struct cdev *cdev = NULL;
 
 	struct resource *res = NULL;
-	void *base = NULL;
 
 	/* Register a character device */
 	ret = alloc_chrdev_region(&dev_id, 0, SBC_MAX_DEVS, SBC_DEVICE_NAME);
@@ -174,7 +189,15 @@ deregister_out:
 
 static int sbc_remove(struct platform_device *pdev)
 {
-	/* Remove the device file in /dev */
+	/* I don't know another way to store the base address of the resource
+	 * that we are removing
+	 */
+	devm_iounmap(&pdev->dev, base);
+
+	device_destroy(sbc_class, dev_id);
+	class_destroy(sbc_class);
+
+	unregister_chrdev_region(dev_id, SBC_MAX_DEVS);
 	return 0;
 }
 
