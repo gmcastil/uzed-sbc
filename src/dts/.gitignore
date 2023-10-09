@@ -1,3 +1,4 @@
 # Output and intermediate products
 *.dtb
+system.dts
 system-top.dts

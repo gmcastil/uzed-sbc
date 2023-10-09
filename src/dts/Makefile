@@ -5,8 +5,7 @@ DTC	= /usr/bin/dtc
 
 PPFLAGS	= -I . -E -nostdinc -undef -D__DTS__ -x assembler-with-cpp
 
-DTSIFILES = basic.dtsi \
-	    pcw.dtsi \
+DTSIFILES = pcw.dtsi \
 	    pl.dtsi \
 	    zynq-7000.dtsi 
 
