@@ -1,13 +1,9 @@
 #!/bin/sh
 
-# shellcheck disable=SC2121
-# Turn on debugging
-setenv xtrace yes
-
 # Note that U-boot and the kernel do not share the same device enumeration, so
 # the root device and partitions numbers are not expected to be the same in
 # general
-default_bootargs="earlycon console=ttyPS0,111520 root=/dev/mmcblk0p2 rw rootwait earlyprintk"
+default_bootargs="earlycon console=ttyPS0,115200 uio_pdrv_genirq.of_id=generic-uio root=/dev/mmcblk0p2 rw rootwait earlyprintk"
 
 bitstream="system.bit"
 bitstream_size="0x001fcc08"
