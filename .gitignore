@@ -11,12 +11,3 @@ exports/
 # Xilinx stuff
 .Xil/
 
-# Ignore kernel module build artifacts
-*.ko
-*.mod.c
-*.mod.o
-*.o
-.modules.order
-.Module.symvers
-*.cmd
-
