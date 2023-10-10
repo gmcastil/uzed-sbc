@@ -39,6 +39,8 @@ DEBIAN_INCLUDE+=",libi2c-dev,cloud-guest-utils,dbus,perl-openssl-defaults"
 # Useful packages, including the HAVEGE userspace entropy daemon, which makes
 # SSHD start faster
 DEBIAN_INCLUDE+=",vim,rsync,haveged,tree"
+# More development stuff
+DEBIAN_INCLUDE+=",manpages-dev"
 export DEBIAN_INCLUDE
 
 # This is a case sensitive string and needs to match the Linux kernel entries
