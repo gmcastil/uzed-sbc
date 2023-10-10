@@ -2,7 +2,7 @@
 
 # shellcheck disable=SC2121
 # Turn on debugging
-set xtrace yes
+setenv xtrace yes
 
 # Note that U-boot and the kernel do not share the same device enumeration, so
 # the root device and partitions numbers are not expected to be the same in
