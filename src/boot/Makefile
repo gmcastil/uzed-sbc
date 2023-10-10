@@ -8,8 +8,8 @@ boot.scr: boot.cmd
 	$(MKIMAGE) -T script -A $(ARCH) -d boot.cmd boot.scr
 
 check:
-	$(SHELLCHECK) -f boot.cmd
+	$(SHELLCHECK) boot.cmd
 
 clean:
-	$(RM) boot.scr
+	$(RM) -f boot.scr
 
