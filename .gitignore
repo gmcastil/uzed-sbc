@@ -8,6 +8,9 @@ scripts/debootstrap_*.log
 build/
 exports/
 
+# Other build artifacts
+src/boot/boot.scr
+
 # Xilinx stuff
 .Xil/
 
