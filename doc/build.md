@@ -346,6 +346,8 @@ Xilinx IP. Time will tell.
 
 Some options I've added
 [\*] Enable kernel headers through /sys/kernel/kheaders.tar.xz
+Also, note that EXT3 and EXT4 ACL support is not compiled in by default and that
+systemd with Debian assumes that and will spew error messages without it.
 
 More Edits
 ----------
