@@ -332,3 +332,33 @@ eventually my own modules in `/lib/modules/<uname -r>`.
 Not sure how what I'm doing is going to carry over to understanding the Xilinx
 BRAM to Linux interface.  But i'll get there.
 
+13 October 2023
+---------------
+I've been able to get data into and out of the block RAM from Linux via the UIO
+subsystem interface.  Huge win.
+
+Next things to do - first, need to write some memory verificaton software which
+demonstrates that I can load, dump, purge, save, etc. data from both memories
+from software.
+
+From the hardware side, I need to make some decisions about clocking and resets.
+I've written a bit about this - I really want to start working on some hardware,
+but I really need to get the software side taken care of while it is clear in my
+mind.
+
+Operations to support:
+- Peek and poke operations
+- Purge entire memory
+- Test memory with static pattern, address, walking ones, PRN
+- Load file to memory
+- Dump memory to file
+- Load file to offset
+- Dump file from offset
+
+- As far as interface options and such go, I want to be able to pipe to standard
+  out (so that I can pipe to xxd or hexdump) or save to a file. Or maybe even ASCII
+  as well.
+- As much fun as it would be to get hardware going now, the right thing to do is
+  stick to the plan, get memory locked down, and then start working on clocks
+  and resets.
+

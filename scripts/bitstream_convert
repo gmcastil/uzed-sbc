@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Vivado does a terribly inconsistent job generating the correct bitstream
+# formats. 
+
 # The Vivado `write_bitstream` command does not create bitstreams that are
 # correct type and ordering that is compatible with the 
 bootgen -image bitstream.bif -arch zynq -process_bitstream bin
