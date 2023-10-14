@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 	}
 
 	read_bram(mem);
-	ret = write_bram(mem, 0xdead0000);
+	ret = write_bram(mem, 0xdeadbeef);
 	if (!ret) {
 		printf("Success\n");
 	}
