@@ -362,3 +362,19 @@ Operations to support:
   stick to the plan, get memory locked down, and then start working on clocks
   and resets.
 
+21 October 2023
+---------------
+Haven't done anything this week - been working a lot (on somethign that largely
+mirrors this little side project).  This morning, I'm trying to get udev to
+set permissions for me when UIO devices are created. This link is very helpful
+http://www.reactivated.net/writing_udev_rules.html and the only rule I needed to
+write was something like this:
+
+ACTION=="add", KERNEL=="uio[0-9]*", SUBSYSTEM=="uio", ATTR{name}=="axi_bram_ctrl", MODE="0666"
+
+This needs to get added to a rule in /etc/udev/rules.d/ and it should make UIO
+devices on this platform read and writable by a normal user.  There's lots of
+extra complexity here, if you want it, but this is fine for what I need.  This
+basically just makes BRAM controllers that show up as UIO devices accessible
+after those nodes are created.
+
