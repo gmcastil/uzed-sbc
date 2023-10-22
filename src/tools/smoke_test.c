@@ -2,7 +2,7 @@
 
 #include "bram_ctrl.h"
 
-int main(int args, char *argv[])
+int main(int argc, char *argv[])
 {
 	struct bram_resource bram;
 
