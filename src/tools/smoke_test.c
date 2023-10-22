@@ -6,7 +6,7 @@ int main(int argc, char *argv[])
 {
 	struct bram_resource bram;
 
-	bram = bram_create(0);
+	bram = bram_create(0, 0);
 	bram_summary(bram);
 	bram_destroy(bram);
 
