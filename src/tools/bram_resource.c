@@ -7,7 +7,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <linux/kdev_t.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include "bram_resource.h"
@@ -46,8 +46,8 @@ int bram_set_dev_info(struct bram_resource *bram)
 	}
 	if (S_ISCHR(sb.st_mode)) {
 		bram->dev_path = dev_path;
-		bram->dev_major = MAJOR(sb.st_dev);
-		bram->dev_minor = MINOR(sb.st_dev);
+		bram->dev_major = major(sb.st_dev);
+		bram->dev_minor = minor(sb.st_dev);
 	} else {
 		fprintf(stderr, "%s is not a special character device\n", dev_path);
 		return -1;
