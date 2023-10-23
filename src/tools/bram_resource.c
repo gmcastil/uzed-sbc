@@ -1,8 +1,9 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <assert.h>
 
-#include "bram_ctrl.h"
+#include "bram_resource.h"
 
 /* 
  * Maximum lengths for paths to /dev and /sys entries - if they are longer than
@@ -22,7 +23,7 @@ int bram_get_dev_path(char *dev_path, size_t dev_path_size, unsigned int dev_num
 	if (result < 0) {
 		fprintf(stderr, "Output error\n");
 		return -1;
-	} else if (result >= dev_path_size) {
+	} else if (result >= (int) dev_path_size) {
 		fprintf(stderr, "Path name too long\n");
 		return -1;
 	} else {
@@ -39,11 +40,11 @@ int bram_get_map_path(char *map_path, size_t map_path_size, unsigned int dev_num
 	int result;
 	result = snprintf(map_path, map_path_size,
 			"/sys/class/uio/uio%d/maps/map%d", dev_number, map_number);
-	if (result >= map_path_size) {
-		fprintf(stderr, "Path name too logn\n");
-		return -1;
-	} else if (result < 0) {
+	if (result < 0) {
 		fprintf(stderr, "Output error\n");
+		return -1;
+	} else if (result >= (int) map_path_size) {
+		fprintf(stderr, "Path name too logn\n");
 		return -1;
 	} else {
 		return 0;
@@ -64,7 +65,10 @@ int bram_set_mmio_addr(struct bram_resource *bram)
 	FILE *file = NULL;
 
 	result = snprintf(filename, sizeof(filename), "%s/addr", bram->map_path);
-	if (result >= sizeof(filename)) {
+	if (result < 0) {
+		fprintf(stderr, "Output error\n");
+		return -1;
+	} else if (result >= (int) sizeof(filename)) {
 		fprintf(stderr, "Path name too long\n");
 		return -1;
 	}
@@ -96,7 +100,10 @@ int bram_set_mmio_name(struct bram_resource *bram)
 	FILE *file = NULL;
 
 	result = snprintf(filename, sizeof(filename), "%s/name", bram->map_path);
-	if (result >= sizeof(filename)) {
+	if (result < 0) {
+		fprintf(stderr, "Output error\n");
+		return -1;
+	} else if (result >= (int) sizeof(filename)) {
 		fprintf(stderr, "Path name too long\n");
 		return -1;
 	}
@@ -128,13 +135,13 @@ int bram_set_mmio_attrs(struct bram_resource *bram)
 	return 0;
 }
 
-int bram_summary(struct bram_resource bram)
+int bram_summary(struct bram_resource *bram)
 {
-	printf("Device path: %s\n", bram.dev_path);
-	printf("Map number: %d\n", bram.map_number);
-	printf("Map path: %s\n", bram.map_path);
-	printf("Map addr: 0x%08"PRIx32"\n", bram.map_addr);
-	printf("Map name: %s\n", bram.map_name);
+	printf("Device path: %s\n", bram->dev_path);
+	printf("Map number: %d\n", bram->map_number);
+	printf("Map path: %s\n", bram->map_path);
+	printf("Map addr: 0x%08"PRIx32"\n", bram->map_addr);
+	printf("Map name: %s\n", bram->map_name);
 	/*
 	printf("Map offset: 0x%08"PRIx32"\n", bram.map_offset);
 	printf("Map size: 0x%08"PRIx32"\n", bram.map_size);
@@ -145,6 +152,9 @@ int bram_summary(struct bram_resource bram)
 
 struct bram_resource bram_create(unsigned int dev_number, unsigned int map_number)
 {
+	/* Explicitly designed for block RAM with only single map, so redesign now */
+	assert(map_number == 0);
+
 	int result;
 	struct bram_resource bram;
 

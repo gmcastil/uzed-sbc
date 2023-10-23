@@ -30,7 +30,7 @@ int bram_get_dev_path(char *dev_path, size_t dev_path_size,
 		unsigned int dev_number);
 int bram_get_map_path(char *map_path, size_t map_path_size, unsigned int dev_number,
 		unsigned int map_number);
-int bram_summary(struct bram_resource bram);
+int bram_summary(struct bram_resource *bram);
 struct bram_resource bram_create(unsigned int dev_number, unsigned int map_number);
 int bram_destroy(struct bram_resource bram);
 
