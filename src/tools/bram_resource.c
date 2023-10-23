@@ -2,6 +2,13 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <assert.h>
+#include <errno.h>
+#include <string.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <linux/kdev_t.h>
+#include <unistd.h>
 
 #include "bram_resource.h"
 
@@ -9,186 +16,225 @@
  * Maximum lengths for paths to /dev and /sys entries - if they are longer than
  * this something is very wrong
  */
-#define UIO_DEV_PATH_SIZE	16
-#define UIO_MAP_PATH_SIZE	32
-#define UIO_MAX_NAME_SIZE	64
+#define UIO_DEV_PATH_SIZE		16
+#define UIO_MAP_PATH_SIZE		32
+#define UIO_MAX_MAP_NAME_SIZE		64
 
-/* Gets the path to the uio device node in /dev
- * Returns -1 if string is too long
- */
-int bram_get_dev_path(char *dev_path, size_t dev_path_size, unsigned int dev_number)
+/* Function prototypes */
+int bram_set_dev_info(struct bram_resource *bram);
+int bram_set_map_info(struct bram_resource *bram);
+
+int bram_set_dev_info(struct bram_resource *bram)
 {
 	int result;
-	result = snprintf(dev_path, dev_path_size, "/dev/uio%d", dev_number);
+	static char dev_path[UIO_DEV_PATH_SIZE];
+	struct stat sb;
+
+	result = snprintf(dev_path, sizeof(dev_path), "/dev/uio%d", bram->uio_number);
 	if (result < 0) {
 		fprintf(stderr, "Output error\n");
 		return -1;
-	} else if (result >= (int) dev_path_size) {
+	}
+	if (result >= (int) sizeof(dev_path)) {
 		fprintf(stderr, "Path name too long\n");
 		return -1;
-	} else {
-		return 0;
 	}
+
+	if (stat(dev_path, &sb) == -1) {
+		fprintf(stderr, "%s\n", strerror(errno));
+		return -1;
+	}
+	if (S_ISCHR(sb.st_mode)) {
+		bram->dev_path = dev_path;
+		bram->dev_major = MAJOR(sb.st_dev);
+		bram->dev_minor = MINOR(sb.st_dev);
+	} else {
+		fprintf(stderr, "%s is not a special character device\n", dev_path);
+		return -1;
+	}
+	return 0;
 }
 
-/* Gets the path to the memory map location in /sys/class/uio
- * Returns -1 if the string is too long
- */
-int bram_get_map_path(char *map_path, size_t map_path_size, unsigned int dev_number,
-		unsigned int map_number)
+int bram_set_map_info(struct bram_resource *bram)
 {
 	int result;
-	result = snprintf(map_path, map_path_size,
-			"/sys/class/uio/uio%d/maps/map%d", dev_number, map_number);
-	if (result < 0) {
-		fprintf(stderr, "Output error\n");
-		return -1;
-	} else if (result >= (int) map_path_size) {
-		fprintf(stderr, "Path name too logn\n");
-		return -1;
-	} else {
-		return 0;
-	}
-}
+	char *resultp;
+	static char map_path[UIO_MAP_PATH_SIZE];
 
-/* 
- * Set the physical address of the block RAM, the name from the device tree, the
- * MMIO offset value and the size of the memory available to be mapped
- */
-int bram_set_mmio_addr(struct bram_resource *bram)
-{
-	int result;
+	char filepath[UIO_MAP_PATH_SIZE + 8];
+	FILE *fs = NULL;
+
 	uint32_t map_addr;
+	static char map_name[UIO_MAX_MAP_NAME_SIZE];
+	uint32_t map_offset;
+	uint32_t map_size;
 
-	char filename[UIO_MAP_PATH_SIZE + 8];
-
-	FILE *file = NULL;
-
-	result = snprintf(filename, sizeof(filename), "%s/addr", bram->map_path);
+	/* Get the path to the map file in /sys which we will mmap() later */
+	result = snprintf(map_path, sizeof(map_path),
+			"/sys/class/uio/uio%d/maps/map%d", bram->uio_number, bram->map_number);
 	if (result < 0) {
 		fprintf(stderr, "Output error\n");
 		return -1;
-	} else if (result >= (int) sizeof(filename)) {
+	}
+	if (result >= (int) sizeof(filepath)) {
 		fprintf(stderr, "Path name too long\n");
 		return -1;
 	}
 
-	file = fopen(filename, "r");
-	if (!file) {
-		fprintf(stderr, "Could not open %s\n", filename);
+	/* Get the physical address of the block RAM */
+	result = snprintf(filepath, sizeof(filepath), "%s/addr", map_path);
+	if (result < 0) {
+		fprintf(stderr, "Output error\n");
+		return -1;
+	} else if (result >= (int) sizeof(filepath)) {
+		fprintf(stderr, "Path name too long\n");
 		return -1;
 	}
-
-	result = fscanf(file, "0x%08"SCNx32"", &map_addr);
+	fs = fopen(filepath, "r");
+	if (!fs) {
+		fprintf(stderr, "Could not open %s\n", filepath);
+		return -1;
+	}
+	result = fscanf(fs, "0x%08"SCNx32"", &map_addr);
+	if (fclose(fs)) {
+		fprintf(stderr, "%s\n", strerror(errno));
+	}
 	if (result != 1) {
-		fprintf(stderr, "Could not set physical address for map\n");
+		fprintf(stderr, "Could not get physical address for map\n");
 		return -1;
-	} else {
-		bram->map_addr = map_addr;
-		return 0;
 	}
-}
 
-int bram_set_mmio_name(struct bram_resource *bram)
-{
-	int result;
-
-	char filename[UIO_MAP_PATH_SIZE + 8];
-
-	static char map_name[UIO_MAX_NAME_SIZE];
-
-	FILE *file = NULL;
-
-	result = snprintf(filename, sizeof(filename), "%s/name", bram->map_path);
+	/* Get the name of the map that would appear in the device tree */
+	result = snprintf(filepath, sizeof(filepath), "%s/name", map_path);
 	if (result < 0) {
 		fprintf(stderr, "Output error\n");
 		return -1;
-	} else if (result >= (int) sizeof(filename)) {
+	} else if (result >= (int) sizeof(filepath)) {
 		fprintf(stderr, "Path name too long\n");
 		return -1;
 	}
-
-	file = fopen(filename, "r");
-	if (!file) {
-		fprintf(stderr, "Could not open %s\n", filename);
+	fs = fopen(filepath, "r");
+	if (!fs) {
+		fprintf(stderr, "Could not open %s\n", filepath);
+		return -1;
+	}
+	resultp = fgets(map_name, sizeof(map_name), fs);
+	if (fclose(fs)) {
+		fprintf(stderr, "%s\n", strerror(errno));
+		return -1;
+	}
+	if (!resultp) {
+		fprintf(stderr, "Could not get map name\n");
 		return -1;
 	}
 
-	if (fgets(map_name, sizeof(map_name), file) == NULL) {
-		fprintf(stderr, "Could not set name for map\n");
+	/* Get map offset */
+	result = snprintf(filepath, sizeof(filepath), "%s/offset", map_path);
+	if (result < 0) {
+		fprintf(stderr, "Output error\n");
 		return -1;
-	} else {
-		bram->map_name = map_name;
-		return 0;
+	} else if (result >= (int) sizeof(filepath)) {
+		fprintf(stderr, "Path name too long\n");
+		return -1;
 	}
-}
+	fs = fopen(filepath, "r");
+	if (!fs) {
+		fprintf(stderr, "Could not open %s\n", filepath);
+		return -1;
+	}
+	result = fscanf(fs, "0x%08"SCNx32"", &map_offset);
+	if (fclose(fs)) {
+		fprintf(stderr, "%s\n", strerror(errno));
+		return -1;
+	}
+	if (result != 1) {
+		fprintf(stderr, "Could not get map offset\n");
+		return -1;
+	}
 
-int bram_set_mmio_attrs(struct bram_resource *bram)
-{
-	int result;
-	result = bram_set_mmio_addr(bram);
-	result = bram_set_mmio_name(bram);
-	if (result) {
-		fprintf(stderr, "Could not set MMIO attributes\n");
+	/* Get map size */
+	result = snprintf(filepath, sizeof(filepath), "%s/size", map_path);
+	if (result < 0) {
+		fprintf(stderr, "Output error\n");
+		return -1;
+	} else if (result >= (int) sizeof(filepath)) {
+		fprintf(stderr, "Path name too long\n");
 		return -1;
 	}
+	fs = fopen(filepath, "r");
+	if (!fs) {
+		fprintf(stderr, "Could not open %s\n", filepath);
+		return -1;
+	}
+	result = fscanf(fs, "0x%08"SCNx32"", &map_size);
+	if (fclose(fs)) {
+		fprintf(stderr, "%s\n", strerror(errno));
+		return -1;
+	}
+	if (result != 1) {
+		fprintf(stderr, "Could not get map size\n");
+		return -1;
+	}
+
+	/* Now that we have all of these, we set the values */
+	bram->map_path = map_path;
+	bram->map_addr = map_addr;
+	bram->map_name = map_name;
+	bram->map_offset = map_offset;
+	bram->map_size = map_size;
 	return 0;
 }
 
 int bram_summary(struct bram_resource *bram)
 {
-	printf("Device path: %s\n", bram->dev_path);
-	printf("Map number: %d\n", bram->map_number);
-	printf("Map path: %s\n", bram->map_path);
-	printf("Map addr: 0x%08"PRIx32"\n", bram->map_addr);
-	printf("Map name: %s\n", bram->map_name);
-	/*
-	printf("Map offset: 0x%08"PRIx32"\n", bram.map_offset);
-	printf("Map size: 0x%08"PRIx32"\n", bram.map_size);
-	printf("Device numbers: %d:%d\n", bram.dev_major, bram.dev_minor);
-	*/
+	printf("%-16s%s\n", "Device path:", bram->dev_path);
+	printf("%-16s%d:%d\n", "Device numbers:", bram->dev_major, bram->dev_minor);	
+	printf("%-16s%d\n", "Map number:", bram->map_number);
+	printf("%-16s%s\n", "Map path:", bram->map_path);
+	printf("%-16s0x%08"PRIx32"\n", "Map addr:", bram->map_addr);
+	printf("%-16s%s\n", "Map name:", bram->map_name);
+	printf("%-16s0x%08"PRIx32"\n", "Map offset:", bram->map_offset);
+	printf("%-16s0x%08"PRIx32"\n", "Map size:", bram->map_size);
 	return 0;
 }
 
-struct bram_resource bram_create(unsigned int dev_number, unsigned int map_number)
+int bram_create(struct bram_resource *bram, int uio_number, int map_number)
 {
-	/* Explicitly designed for block RAM with only single map, so redesign now */
-	assert(map_number == 0);
-
 	int result;
-	struct bram_resource bram;
 
-	static char dev_path[UIO_DEV_PATH_SIZE];
-	static char map_path[UIO_MAP_PATH_SIZE];
+	if ((uio_number < 0) || (map_number < 0)) {
+		fprintf(stderr, "UIO and map number must each be greater than 0\n");
+		return -1;
+	}
+	/* 
+	 * These need to be set before trying to extract device ID and memory
+	 * map attributes (e.g., size)
+	 */
+	bram->uio_number = uio_number;
+	bram->map_number = map_number;
 
-	/* Set the location in /dev of the device node */
-	result = bram_get_dev_path(dev_path, UIO_DEV_PATH_SIZE, dev_number);
+	/* Set path of device file to open later and device IDs */
+	result = bram_set_dev_info(bram);
 	if (result) {
-		fprintf(stderr, "Could not set device path for device %d\n", dev_number);
-	} else {
-		bram.dev_path = dev_path;
+		fprintf(stderr, "Could not set device path for device %d\n",
+				bram->uio_number);
+		return -1;
 	}
 
-	/* In the current implementation, each block RAM presents only one region to be
-	 * memory mapped (i.e., map number should always be 0) */
-	bram.map_number = map_number;
-
-	/* Set the location of memory map in /sys/class/uio/uioN/maps/mapM */
-	result = bram_get_map_path(map_path, UIO_MAP_PATH_SIZE, dev_number, map_number);
+	/* Set location and attributes for this device and memory map */
+	result = bram_set_map_info(bram);
 	if (result) {
 		fprintf(stderr, "Could not set memory map path for device %d and map %d\n",
-				dev_number, map_number);
-	} else {
-		bram.map_path = map_path;
+				bram->uio_number, bram->map_number);
+		return -1;
 	}
 
-	/* Set the memory map values for this device and memory map */
-	bram_set_mmio_attrs(&bram);
+	/* Now we actually create the memory map to read and write this device */
 
-	return bram;
+	return 0;
 }
 
-int bram_destroy(struct bram_resource bram)
+int bram_destroy(struct bram_resource *bram)
 {
 	return 0;
 }
