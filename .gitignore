@@ -16,3 +16,7 @@ src/boot/boot.scr
 
 # C stuff
 *.o
+
+# Binaries
+src/tools/smoke_test
+
