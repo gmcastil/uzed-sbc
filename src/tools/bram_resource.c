@@ -46,8 +46,8 @@ int bram_set_dev_info(struct bram_resource *bram)
 	}
 	if (S_ISCHR(sb.st_mode)) {
 		bram->dev_path = dev_path;
-		bram->dev_major = MAJOR(sb.st_dev);
-		bram->dev_minor = MINOR(sb.st_dev);
+		bram->dev_major = MAJOR(sb.st_rdev);
+		bram->dev_minor = MINOR(sb.st_rdev);
 	} else {
 		fprintf(stderr, "%s is not a special character device\n", dev_path);
 		return -1;
