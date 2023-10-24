@@ -13,8 +13,8 @@ struct bram_resource {
 	/* Path to memory map in /sys */
 	char *map_path;
 	/* Device major and minor numbers */
-	dev_t major;
-	dev_t minor;
+	unsigned int major;
+	unsigned int minor;
 	/* Physical address of the block RAM */
 	uint32_t map_addr;
 	/* String identifier for the mapping */
