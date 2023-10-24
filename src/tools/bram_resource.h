@@ -2,6 +2,7 @@
 #define BRAM_CTRL_H
 
 #include <stdint.h>
+#include <sys/types.h>
 
 struct bram_resource {
 	/* User is responsible for setting the UIO device and map numbers */
@@ -12,8 +13,8 @@ struct bram_resource {
 	/* Path to memory map in /sys */
 	char *map_path;
 	/* Device major and minor numbers */
-	int dev_major;
-	int dev_minor;
+	dev_t major;
+	dev_t minor;
 	/* Physical address of the block RAM */
 	uint32_t map_addr;
 	/* String identifier for the mapping */

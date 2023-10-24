@@ -46,8 +46,8 @@ int bram_set_dev_info(struct bram_resource *bram)
 	}
 	if (S_ISCHR(sb.st_mode)) {
 		bram->dev_path = dev_path;
-		bram->dev_major = major(sb.st_dev);
-		bram->dev_minor = minor(sb.st_dev);
+		bram->major = major(sb.st_dev);
+		bram->minor = minor(sb.st_dev);
 	} else {
 		fprintf(stderr, "%s is not a special character device\n", dev_path);
 		return -1;
@@ -188,7 +188,8 @@ int bram_set_map_info(struct bram_resource *bram)
 int bram_summary(struct bram_resource *bram)
 {
 	printf("%-16s%s\n", "Device path:", bram->dev_path);
-	printf("%-16s%d:%d\n", "Device numbers:", bram->dev_major, bram->dev_minor);	
+	printf("%-16s%jd:%jd\n", "Device numbers:",
+			(intmax_t) bram->major, (intmax_t) bram->minor);
 	printf("%-16s%d\n", "Map number:", bram->map_number);
 	printf("%-16s%s\n", "Map path:", bram->map_path);
 	printf("%-16s0x%08"PRIx32"\n", "Map addr:", bram->map_addr);
