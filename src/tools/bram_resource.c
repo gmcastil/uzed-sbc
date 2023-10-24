@@ -127,6 +127,17 @@ int bram_set_map_info(struct bram_resource *bram)
 		fprintf(stderr, "Could not get map name\n");
 		return -1;
 	}
+	/* 
+	 * Remove the newline if it is present - note that this string is
+	 * guaranteed to have a \0 at the end because that is how fgets()
+	 * crafts the result
+	 */
+	for (int i = 0; i < (int) sizeof(map_name); i++) {
+		if (map_name[i] == '\n') {
+			map_name[i] = '\0';
+			break;
+		}
+	}
 
 	/* Get map offset */
 	result = snprintf(filepath, sizeof(filepath), "%s/offset", map_path);
