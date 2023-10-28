@@ -10,22 +10,28 @@ struct bram_resource {
 	int map_number;
 	/* Path to the node created in /dev */
 	char *dev_path;
-	/* Path to memory map in /sys */
-	char *map_path;
 	/* Device major and minor numbers */
 	unsigned int major;
 	unsigned int minor;
+	/* Path to memory map in /sys */
+	char *map_path;
 	/* Physical address of the block RAM */
 	uint32_t map_addr;
 	/* String identifier for the mapping */
 	char *map_name;
 	/* 
+	 * Location where UIO device has been mapped in memory - this is the
+	 * location returned by call to mmap() that has to be unmapped when the
+	 * BRAM resource is destroyed
+	 */
+	void *map;
+	/*
 	 * Offset in bytes that has to be added to mmap() return to get to the
 	 * actual device memory. This is usually zero.
 	 */
-	uint32_t map_offset;
+	off_t map_offset;
 	/* Size in bytes of the memory */
-	uint32_t map_size;
+	size_t map_size;
 };
 
 int bram_summary(struct bram_resource *bram);
