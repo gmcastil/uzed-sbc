@@ -235,6 +235,20 @@ err_open:
 	return -1;
 }
 
+int bram_unmap_resource(struct bram_resource *bram)
+{
+	int result;
+	if (!bram->map) {
+		fprintf(stderr, "No memory to unmap\n");
+		return -1;
+	}
+	result = munmap(bram->map, bram->map_size);
+	if (result) {
+		fprintf(stderr, "Error: %s\n", strerror(errno));
+		return -1;
+	}
+}
+
 int bram_summary(struct bram_resource *bram)
 {
 	printf("%-16s%s\n", "Device path:", bram->dev_path);
@@ -263,7 +277,7 @@ int bram_create(struct bram_resource *bram, int uio_number, int map_number)
 	 */
 	bram->uio_number = uio_number;
 	bram->map_number = map_number;
-	/* Also set the memory map pointer here so it has to be set by mmap() */
+	/* Also null the memory map pointer here so it has to be set by mmap() */
 	bram->map = NULL;
 
 	/* Set path of device file to open later and device IDs */
@@ -296,16 +310,29 @@ int bram_create(struct bram_resource *bram, int uio_number, int map_number)
 int bram_destroy(struct bram_resource *bram)
 {
 	int result;
-	if (!bram->map) {
-		fprintf(stderr, "No memory to unmap\n");
+	if (!bram) {
+		fprintf(stderr, "No block RAM resource to destroy\n");
 		return -1;
 	}
-	result = munmap(bram->map, bram->map_size);
+	result = bram_unmap_resource(bram);
 	if (result) {
-		fprintf(stderr, "Error: %s\n", strerror(errno));
+		fprintf(stderr, "Could not unmap resource\n");
 		return -1;
 	}
 
 	return 0;
 }
 
+int bram_dump(struct bram_resource *bram, char *filename)
+{
+	int fd;
+
+	if (!filename) {
+		fprintf(stderr, "No filename provided\n");
+	}
+	
+	fd = open(filename, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
+	close(fd);
+	return 0;
+	
+}

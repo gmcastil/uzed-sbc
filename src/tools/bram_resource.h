@@ -5,7 +5,7 @@
 #include <sys/types.h>
 
 struct bram_resource {
-	/* User is responsible for setting the UIO device and map numbers */
+	/* User provides the UIO device and map numbers at creation */
 	int uio_number;
 	int map_number;
 	/* Path to the node created in /dev */
@@ -27,7 +27,9 @@ struct bram_resource {
 	void *map;
 	/*
 	 * Offset in bytes that has to be added to mmap() return to get to the
-	 * actual device memory. This is usually zero.
+	 * actual device memory. This is usually zero and will be checked to
+	 * make sure that it is a multiple of the page size as returned by
+	 * sysconf(_SC_PAGE_SIZE).
 	 */
 	off_t map_offset;
 	/* Size in bytes of the memory */
@@ -37,6 +39,7 @@ struct bram_resource {
 int bram_summary(struct bram_resource *bram);
 int bram_create(struct bram_resource *bram, int uio_number, int map_number);
 int bram_destroy(struct bram_resource *bram);
+int bram_dump(struct bram_resource *bram, char *filename);
 
 #endif /* BRAM_CTRL_H */
 

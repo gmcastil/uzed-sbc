@@ -17,6 +17,8 @@ int main(int argc, char *argv[])
 	result = bram_create(&sbc_ram, 1, 0);
 	bram_summary(&sbc_ram);
 
+	bram_dump(&sbc_ram, "test.bin");
+
 	bram_destroy(&sbc_ram);
 	bram_destroy(&sbc_rom);
 
