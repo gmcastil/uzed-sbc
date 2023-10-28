@@ -43,7 +43,7 @@ int bram_set_dev_info(struct bram_resource *bram)
 	}
 
 	if (stat(dev_path, &sb) == -1) {
-		fprintf(stderr, "%s\n", strerror(errno));
+		fprintf(stderr, "Error: %s\n", strerror(errno));
 		return -1;
 	}
 	if (S_ISCHR(sb.st_mode)) {
@@ -99,7 +99,7 @@ int bram_set_map_info(struct bram_resource *bram)
 	}
 	result = fscanf(fs, "0x%08"SCNx32"", &map_addr);
 	if (fclose(fs)) {
-		fprintf(stderr, "%s\n", strerror(errno));
+		fprintf(stderr, "Error: %s\n", strerror(errno));
 	}
 	if (result != 1) {
 		fprintf(stderr, "Could not get physical address for map\n");
@@ -122,7 +122,7 @@ int bram_set_map_info(struct bram_resource *bram)
 	}
 	resultp = fgets(map_name, sizeof(map_name), fs);
 	if (fclose(fs)) {
-		fprintf(stderr, "%s\n", strerror(errno));
+		fprintf(stderr, "Error: %s\n", strerror(errno));
 		return -1;
 	}
 	if (!resultp) {
@@ -157,7 +157,7 @@ int bram_set_map_info(struct bram_resource *bram)
 	}
 	result = fscanf(fs, "0x%08"SCNx32"", &map_offset);
 	if (fclose(fs)) {
-		fprintf(stderr, "%s\n", strerror(errno));
+		fprintf(stderr, "Error: %s\n", strerror(errno));
 		return -1;
 	}
 	if (result != 1) {
@@ -181,7 +181,7 @@ int bram_set_map_info(struct bram_resource *bram)
 	}
 	result = fscanf(fs, "0x%08"SCNx32"", &map_size);
 	if (fclose(fs)) {
-		fprintf(stderr, "%s\n", strerror(errno));
+		fprintf(stderr, "Error:%s\n", strerror(errno));
 		return -1;
 	}
 	if (result != 1) {
@@ -204,9 +204,9 @@ int bram_map_resource(struct bram_resource *bram)
 
 	void *map;
 
-	fd = open(bram->map_path, O_RDWR);
+	fd = open(bram->dev_path, O_RDWR);
 	if (fd < 0) {
-		fprintf(stderr, "%s\n", strerror(errno));
+		fprintf(stderr, "Error: %s\n", strerror(errno));
 		goto err_open;
 	}
 	/* The offset is required to be a multiple of the page size */
@@ -222,7 +222,7 @@ int bram_map_resource(struct bram_resource *bram)
 	map = mmap(NULL, bram->map_size, PROT_READ | PROT_READ, MAP_SHARED,
 			fd, bram->map_offset);
 	if (!map) {
-		fprintf(stderr, "Could not map %s\n", bram->map_path);
+		fprintf(stderr, "Error: %s\n", strerror(errno));
 		goto err_mmap;
 	}
 	close(fd);
@@ -295,6 +295,17 @@ int bram_create(struct bram_resource *bram, int uio_number, int map_number)
 
 int bram_destroy(struct bram_resource *bram)
 {
+	int result;
+	if (!bram->map) {
+		fprintf(stderr, "No memory to unmap\n");
+		return -1;
+	}
+	result = munmap(bram->map, bram->map_size);
+	if (result) {
+		fprintf(stderr, "Error: %s\n", strerror(errno));
+		return -1;
+	}
+
 	return 0;
 }
 
