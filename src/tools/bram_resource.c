@@ -22,6 +22,12 @@
 #define UIO_MAP_PATH_SIZE		32
 #define UIO_MAX_MAP_NAME_SIZE		64
 
+/*
+ * All binary save formats will generally need to be readable and writable by
+ * user but not executable
+ */
+#define DEFAULT_BIN_CREATE_MODE		S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
+
 /* Function prototypes */
 int bram_set_dev_info(struct bram_resource *bram);
 int bram_set_map_info(struct bram_resource *bram);
@@ -247,6 +253,7 @@ int bram_unmap_resource(struct bram_resource *bram)
 		fprintf(stderr, "Error: %s\n", strerror(errno));
 		return -1;
 	}
+	return 0;
 }
 
 int bram_summary(struct bram_resource *bram)
@@ -331,7 +338,13 @@ int bram_dump(struct bram_resource *bram, char *filename)
 		fprintf(stderr, "No filename provided\n");
 	}
 	
-	fd = open(filename, O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
+	fd = open(filename, O_CREAT | O_EXCL | O_RDWR, DEFAULT_BIN_CREATE_MODE);
+	if (fd < 0) {
+		fprintf(stderr, "Error: %s\n", strerror(errno));
+		return -1;
+	}
+	for (size_t i = 0; i < bram->map_size; i++) {
+
 	close(fd);
 	return 0;
 	
