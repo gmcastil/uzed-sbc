@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
 	result = bram_create(&sbc_rom, 0, 0);
 	bram_summary(&sbc_rom);
 
-	printf('\n');
+	printf("\n");
 
 	result = bram_create(&sbc_ram, 1, 0);
 	bram_summary(&sbc_ram);

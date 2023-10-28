@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
+#include <sys/mman.h>
 
 #include "bram_resource.h"
 
@@ -199,7 +200,6 @@ int bram_set_map_info(struct bram_resource *bram)
 
 int bram_map_resource(struct bram_resource *bram)
 {
-	int result;
 	int fd;
 
 	void *map;
@@ -210,8 +210,8 @@ int bram_map_resource(struct bram_resource *bram)
 		goto err_open;
 	}
 	/* The offset is required to be a multiple of the page size */
-	if (bram->offset % sysconf(_SC_PAGE_SIZE)) {
-		fprintf(stderr, "Offset must be a multiple of the page size\n");
+	if (bram->map_offset % sysconf(_SC_PAGE_SIZE)) {
+		fprintf(stderr, "Map offset must be a multiple of the page size\n");
 		goto err_mmap;
 	}
 	/*
@@ -219,10 +219,10 @@ int bram_map_resource(struct bram_resource *bram)
 	 * to not modify the struct that is passed in unless the memory map was
 	 * successful
 	 */
-	map = mmap(NULL, map_size, PROT_READ | PROT_READ, MAP_SHARED,
-			fd, bram->offset);
+	map = mmap(NULL, bram->map_size, PROT_READ | PROT_READ, MAP_SHARED,
+			fd, bram->map_offset);
 	if (!map) {
-		fprintf(stderr, "Could not map %s\n" bram->map_path);
+		fprintf(stderr, "Could not map %s\n", bram->map_path);
 		goto err_mmap;
 	}
 	close(fd);
@@ -244,8 +244,8 @@ int bram_summary(struct bram_resource *bram)
 	printf("%-16s%s\n", "Map path:", bram->map_path);
 	printf("%-16s0x%08"PRIx32"\n", "Map addr:", bram->map_addr);
 	printf("%-16s%s\n", "Map name:", bram->map_name);
-	printf("%-16s0x%08"PRIx32"\n", "Map offset:", bram->map_offset);
-	printf("%-16s0x%08"PRIx32"\n", "Map size:", bram->map_size);
+	printf("%-16s0x%08"PRIx32"\n", "Map offset:", (uint32_t) bram->map_offset);
+	printf("%-16s0x%08"PRIx32"\n", "Map size:", (uint32_t) bram->map_size);
 	return 0;
 }
 
