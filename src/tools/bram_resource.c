@@ -330,12 +330,24 @@ int bram_destroy(struct bram_resource *bram)
 	return 0;
 }
 
+/* 
+ * TODO this should probably write to an already opened file of some sort so I
+ * can dump to things like xxd instead of having to save it to a file and then
+ * view the hex dump
+ */
 int bram_dump(struct bram_resource *bram, char *filename)
 {
 	int fd;
+	uint32_t *map_pos = NULL;
 
 	if (!filename) {
 		fprintf(stderr, "No filename provided\n");
+		return -1;
+	}
+
+	if (bram->map_size % 4) {
+		fprintf(stderr, "Block RAM map sizes need to be multiples of 4 bytes\n");
+		return -1;
 	}
 	
 	fd = open(filename, O_CREAT | O_EXCL | O_RDWR, DEFAULT_BIN_CREATE_MODE);
@@ -343,9 +355,19 @@ int bram_dump(struct bram_resource *bram, char *filename)
 		fprintf(stderr, "Error: %s\n", strerror(errno));
 		return -1;
 	}
-	for (size_t i = 0; i < bram->map_size; i++) {
+
+	map_pos = (uint32_t *) bram->map;
+	for (size_t i = 0; i < bram->map_size / 4; i++) {
+		printf("0x%08"PRIx32"\n", *map_pos);
+		map_pos++;
+	}
 
 	close(fd);
 	return 0;
 	
 }
+
+int bram_purge(struct bram_resource *bram, uint16_t start_addr,
+		uint16_t stop_addr, uint8_t val)
+{
+

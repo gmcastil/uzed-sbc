@@ -10,12 +10,7 @@ int main(int argc, char *argv[])
 	struct bram_resource sbc_ram;
 
 	result = bram_create(&sbc_rom, 0, 0);
-	bram_summary(&sbc_rom);
-
-	printf("\n");
-
 	result = bram_create(&sbc_ram, 1, 0);
-	bram_summary(&sbc_ram);
 
 	bram_dump(&sbc_ram, "test.bin");
 
