@@ -20,3 +20,6 @@ src/boot/boot.scr
 # Binaries
 src/tools/smoke_test
 
+# Saved BRAM images
+*.bin
+
