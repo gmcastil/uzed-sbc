@@ -7,7 +7,7 @@ int main(int argc, char *argv[])
 	int result;
 
 	size_t start_addr = 0x0000;
-	size_t stop_addr = 0x01ff;
+	size_t stop_addr = 0x3fff;
 
 	/* 
 	 * In hardware, uio0 is instrumented on both sides of the block RAM 
@@ -19,9 +19,21 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	/*bram_summary(&sbc_ram);*/
-
+	bram_dump(&sbc_ram, stdout);
 	result = bram_purge(&sbc_ram, start_addr, stop_addr, 0xff);
+	if (result != (int) (stop_addr - start_addr)) {
+		fprintf(stderr, "Purge error\n");
+		return -1;
+	}
+	bram_dump(&sbc_ram, stdout);
+
+	start_addr = 0x0100;
+	stop_addr = 0x01ff;
+	result = bram_purge(&sbc_ram, start_addr, stop_addr, 0x00);
+	if (result != (int) (stop_addr - start_addr)) {
+		fprintf(stderr, "Purge error\n");
+		return -1;
+	}
 	bram_dump(&sbc_ram, stdout);
 
 	bram_destroy(&sbc_ram);
