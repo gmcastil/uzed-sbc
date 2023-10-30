@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
 
 	bram_summary(&sbc_ram);
 
-	result = bram_purge(&sbc_ram, start_addr, stop_addr, 0xdeadbeef);
+	result = bram_purge(&sbc_ram, start_addr, stop_addr, 0xff);
 	bram_dump(&sbc_ram, "test.bin");
 
 	bram_destroy(&sbc_ram);
