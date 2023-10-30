@@ -39,7 +39,7 @@ struct bram_resource {
 int bram_summary(struct bram_resource *bram);
 int bram_create(struct bram_resource *bram, int uio_number, int map_number);
 int bram_destroy(struct bram_resource *bram);
-int bram_dump(struct bram_resource *bram, char *filename);
+int bram_dump(struct bram_resource *bram, FILE *stream);
 int bram_purge(struct bram_resource *bram, size_t start_addr,
 		size_t stop_addr, uint8_t val);
 

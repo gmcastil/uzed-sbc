@@ -15,14 +15,14 @@ int main(int argc, char *argv[])
 	 */
 	struct bram_resource sbc_ram;
 
-	if (bram_create(&sbc_ram, 0, 0)) {
+	if (bram_create(&sbc_ram, 1, 0)) {
 		return 1;
 	}
 
-	bram_summary(&sbc_ram);
+	/*bram_summary(&sbc_ram);*/
 
 	result = bram_purge(&sbc_ram, start_addr, stop_addr, 0xff);
-	bram_dump(&sbc_ram, "test.bin");
+	bram_dump(&sbc_ram, stdout);
 
 	bram_destroy(&sbc_ram);
 
