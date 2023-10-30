@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
@@ -13,6 +14,15 @@
 #include <sys/mman.h>
 
 #include "bram_resource.h"
+
+#define bad_addr_assert(condition, ...) do { \
+	if (!(condition)) { \
+		fprintf(stderr, "Assertion failed: "); \
+		fprintf(stderr, __VA_ARGS__); \
+		fprintf(stderr, ", File: %s, Line: %d\n", __FILE__, __LINE__); \
+		assert(condition); \
+	} \
+} while (0)
 
 /*
  * Maximum lengths for paths to /dev and /sys entries - if they are longer than
@@ -225,7 +235,7 @@ int bram_map_resource(struct bram_resource *bram)
 	 * to not modify the struct that is passed in unless the memory map was
 	 * successful
 	 */
-	map = mmap(NULL, bram->map_size, PROT_READ | PROT_READ, MAP_SHARED,
+	map = mmap(NULL, bram->map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
 			fd, bram->map_offset);
 	if (!map) {
 		fprintf(stderr, "Error: %s\n", strerror(errno));
@@ -367,7 +377,105 @@ int bram_dump(struct bram_resource *bram, char *filename)
 	
 }
 
-int bram_purge(struct bram_resource *bram, uint16_t start_addr,
-		uint16_t stop_addr, uint8_t val)
+/* 
+ * start_addr - starting address to purge
+ * stop_addr - last address to purge
+ *
+ * Note that since all accesses are in 32-bit chunks, that the actual address
+ * that will be written to is not the same address that will be placed on the
+ * hardware bus. Also, the wrong way to think about this is to specify things
+ * like 0x0000 to 0x0200 to purge to 0x01ff. The former would actually purge
+ * 0x0203, which causes memory corruption at best or a segmentation fault at
+ * worse, if trying to purge to the upper bound.
+ */
+int bram_purge(struct bram_resource *bram, size_t start_addr,
+		size_t stop_addr, uint32_t val)
 {
+	uint32_t *map_pos = NULL;
+	size_t num_to_write = 0;
+	int num_written = 0;
+	size_t last_addr = 0;
+
+	/* Check for NULL pointers */
+	if (!bram || !bram->map) {
+		fprintf(stderr, "Failed NULL pointer checks\n");
+		return -1;
+	}
+	/* 
+	 * 32-bit accesses get hard to think about - the memory is going to be
+	 * treated as a large array of 32 bit values. Start and stop addresses
+	 * will be masked off so that they refer to the first write and the last
+	 * write in the array.  So, for example, a start address of 0x2001
+	 * becomes 0x2000 and a stop address of 0x2fff becomes 0x2ffc, which
+	 * would indicate a purge of the region 0x2000-0x2fff (usually the
+	 * desired behavior).
+	 *
+	 * A possible edge case to consider - trying to use a stop address of
+	 * something like 0x0100 is entirely legitimate and in that case,
+	 * addresses 0x0100, 0x0101, 0x0102, and 0x0103 will all get purged. So
+	 * comparisons need to be made to make sure that the relationship
+	 * between the start, stop, and memory size are all correct.
+	 */
+	start_addr = start_addr & 0xfffffffc;
+	stop_addr = stop_addr & 0xfffffffc;
+
+	/* Guarantee we always deal with 32-bit aligned addresses */
+	bad_addr_assert(start_addr % 4 == 0, "start_addr = 0x08%zu", start_addr);
+	bad_addr_assert(stop_addr % 4 == 0, "stop_addr = 0x08%zu", stop_addr);
+	/* 
+	 * And because we do 4 byte accesses, we implicitly require block RAM
+	 * to contain at least 4 bytes
+	 */
+	assert(bram->map_size >= 4);
+	assert(bram->map_size % 4 == 0);
+
+	/* 
+	 * Since the stop address is the last address to be written to actually
+	 * writes 4 bytes, we need to check that it won't go past the end of the
+	 * memory. But, the map_size doesn't tell us the last address, only the
+	 * size of the memory, so we explicitly calculate the largest value that
+	 * the stop address can take on and actually be serviced.
+	 */
+	last_addr = (bram->map_size - 1) & 0xfffffffc;
+	if (stop_addr > last_addr) {
+		fprintf(stderr, "Stop address exceeds memory bound\n");
+		return -1;
+	}
+
+	/* Do some bounds checking on start and stop addresses.*/
+	if (stop_addr < start_addr) {
+		fprintf(stderr, "Start address cannot be greater than stop address\n");
+		return -1;
+	}
+
+	/* 
+	 * Calculate the number of writes to perform - remember, these are all
+	 * multiples of 4 so these kinds of comparisons are safe. The degenerate
+	 * case of the start and stop addresses being the same reduces to a
+	 * single 32-bit access.
+	 */
+	num_to_write = 1 + ((stop_addr - start_addr) >> 2);
+	if ((num_to_write * 4) > bram->map_size) {
+		fprintf(stderr, "Specified range is larger than resource size\n");
+		return -1;
+	}
+
+	map_pos = (uint32_t *) bram->map;
+	if (!map_pos) {
+		fprintf(stderr, "Failed a NULL pointer check\n");
+		return -1;
+	}
+	/* 
+	 * Since we only do 32-bit accesses, we need to create a stride from the
+	 * starting offset, hence the two bit shift.
+	 */
+	map_pos = map_pos + (start_addr >> 2);
+	for (size_t i = 0; i < num_to_write; i++) {
+		*map_pos = val;
+		map_pos++;
+		num_written++;
+	}
+	return num_written;
+}
+
 
