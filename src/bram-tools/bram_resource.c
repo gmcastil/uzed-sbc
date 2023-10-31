@@ -324,4 +324,3 @@ int bram_destroy(struct bram_resource *bram)
 	return 0;
 }
 
-

@@ -1,3 +1,5 @@
+#include <argp.h>
+
 #include "bram_resource.h"
 
 /*
@@ -18,5 +20,6 @@ int bram_summary(struct bram_resource *bram)
 
 int main(int argc, char *argv[])
 {
+
 	return 0;
 }

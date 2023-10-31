@@ -5,10 +5,10 @@ bram_info: bram_info.o bram_resource.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 bram_info.o: bram_info.c bram_resource.h
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 bram_resource.o: bram_resource.c bram_resource.h
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 .PHONY: clean
 clean:

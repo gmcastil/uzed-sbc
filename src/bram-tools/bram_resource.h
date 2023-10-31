@@ -1,6 +1,7 @@
 #ifndef BRAM_CTRL_H
 #define BRAM_CTRL_H
 
+#include <stdio.h>
 #include <stdint.h>
 #include <sys/types.h>
 
