@@ -1,5 +1,6 @@
 #include "bram_resource.h"
 
+/*
 int bram_summary(struct bram_resource *bram)
 {
 	printf("%-16s%s\n", "Device path:", bram->dev_path);
@@ -13,8 +14,9 @@ int bram_summary(struct bram_resource *bram)
 	printf("%-16s0x%08"PRIx32"\n", "Map size:", (uint32_t) bram->map_size);
 	return 0;
 }
+*/
 
 int main(int argc, char *argv[])
 {
-
+	return 0;
 }
