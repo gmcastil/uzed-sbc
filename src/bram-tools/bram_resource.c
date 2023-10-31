@@ -40,10 +40,6 @@
 /* Block RAM addresses in this application cannot exceed this value */
 #define MAX_BRAM_ADDR			0xFFFF
 
-/* Function prototypes */
-int bram_set_dev_info(struct bram_resource *bram);
-int bram_set_map_info(struct bram_resource *bram);
-
 int bram_set_dev_info(struct bram_resource *bram)
 {
 	int result;
@@ -268,20 +264,6 @@ int bram_unmap_resource(struct bram_resource *bram)
 	return 0;
 }
 
-int bram_summary(struct bram_resource *bram)
-{
-	printf("%-16s%s\n", "Device path:", bram->dev_path);
-	printf("%-16s%d:%d\n", "Device numbers:", bram->major, bram->minor);
-	printf("%-16s%d\n", "Map number:", bram->map_number);
-	printf("%-16s0x%"PRIxPTR"\n", "Map pointer:", (uintptr_t) bram->map);
-	printf("%-16s%s\n", "Map path:", bram->map_path);
-	printf("%-16s0x%08"PRIx32"\n", "Map addr:", bram->map_addr);
-	printf("%-16s%s\n", "Map name:", bram->map_name);
-	printf("%-16s0x%08"PRIx32"\n", "Map offset:", (uint32_t) bram->map_offset);
-	printf("%-16s0x%08"PRIx32"\n", "Map size:", (uint32_t) bram->map_size);
-	return 0;
-}
-
 int bram_create(struct bram_resource *bram, int uio_number, int map_number)
 {
 	int result;
@@ -342,120 +324,4 @@ int bram_destroy(struct bram_resource *bram)
 	return 0;
 }
 
-int bram_dump(struct bram_resource *bram, FILE *stream)
-{
-	uint32_t *map_pos = NULL;
-	size_t result;
-
-	if (!stream || !bram || !bram->map) {
-		fprintf(stderr, "Failed NULL pointer check\n");
-		return -1;
-	}
-
-	if (bram->map_size % 4) {
-		fprintf(stderr, "Block RAM map sizes need to be multiples of 4 bytes\n");
-		return -1;
-	}
-	
-	map_pos = bram->map;
-	result = fwrite(map_pos, 1, bram->map_size, stream);
-	if (fflush(stream)) {
-		fprintf(stderr, "fflush() failed: %s\n", strerror(errno));
-	}
-	if (result != bram->map_size) {
-		fprintf(stderr, "Stream error. Expected %zu but received %zu\n",
-				bram->map_size, result);
-		return -1;
-	}
-	return 0;
-}
-
-int bram_load(struct bram_resource *bram, size_t offset,
-		size_t num_bytes, FILE *stream)
-{
-	size_t result;
-	void *map_pos = NULL;
-
-	if (!stream || !bram || !bram->map) {
-		fprintf(stderr, "Failed NULL pointer check\n");
-		return -1;
-	}
-	if ((offset + num_bytes) > bram->map_size) {
-		fprintf(stderr, "Load would exceed block RAM map size\n");
-		return -1;
-	}
-
-	/*
-	 * Interpret the map as a collection of individual bytes, account for
-	 * the offset, also in bytes, and then back to void since that is what
-	 * fread() requires.
-	 */
-	map_pos = (void *) (offset + (uint8_t *) bram->map);
-	if (!map_pos) {
-		fprintf(stderr, "Failed NULL pointer check\n");
-		return -1;
-	}
-	/* I do not believe I need or want to fflush() the input stream */
-	result = fread(map_pos, 1, num_bytes, stream);
-	if (result != num_bytes) {
-		fprintf(stderr, "Stream error. Expected %zu but received %zu\n",
-				num_bytes, result);
-		return -1;
-	}
-	return 0;
-}
-
-int bram_purge(struct bram_resource *bram, size_t start_addr,
-		size_t stop_addr, uint8_t val)
-{
-	uint8_t *map_pos = NULL;
-	size_t num_to_write = 0;
-	int num_written = 0;
-	size_t last_addr = 0;
-
-	/* Check for NULL pointers */
-	if (!bram || !bram->map) {
-		fprintf(stderr, "Failed NULL pointer checks\n");
-		return -1;
-	}
-
-	/* 
-	 * Start and stop addresses should not exceed what is allowed. Note that
-	 * this is what is allowed by block RAM, not the target platform
-	 */
-	if ((stop_addr > MAX_BRAM_ADDR) || (start_addr > MAX_BRAM_ADDR)) {
-		fprintf(stderr, "Stop or start addresses are beyond the maximum allowed\n");
-		return -1;
-	}
-	/* More address and booundary checking */
-	if (stop_addr < start_addr) {
-		fprintf(stderr, "Ending address must be greater than or equal to the "
-				"starting address\n");
-		return -1;
-	}
-	last_addr = bram->map_size - 1;
-	if (stop_addr > last_addr) {
-		fprintf(stderr, "Ending address must not exceed memory upper bound\n");
-		return -1;
-	}
-
-	/* 
-	 * For single byte access, we interpret this as pointing to a bunch
-	 * of 8-bit values
-	 */
-	map_pos = (uint8_t *) bram->map;
-	if (!map_pos) {
-		fprintf(stderr, "Failed a NULL pointer check\n");
-		return -1;
-	}
-
-	/* Because block RAM addresses are zero indexed */
-	num_to_write = 1 + (stop_addr - start_addr);
-	for (size_t i = 0; i < num_to_write; i++) {
-		*map_pos = val;
-		map_pos++;
-		num_written++;
-	}
-	return (int) num_written;
-}
 
