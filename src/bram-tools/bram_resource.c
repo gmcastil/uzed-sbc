@@ -1,45 +1,7 @@
-#include <stdint.h>
-#include <inttypes.h>
 #include <stdio.h>
-#include <stdarg.h>
-#include <assert.h>
-#include <errno.h>
-#include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/sysmacros.h>
-#include <sys/mman.h>
 
 #include "bram_resource.h"
 #include "bram_helper.h"
-
-#define bad_addr_assert(condition, ...) do { \
-	if (!(condition)) { \
-		fprintf(stderr, "Assertion failed: "); \
-		fprintf(stderr, __VA_ARGS__); \
-		fprintf(stderr, ", File: %s, Line: %d\n", __FILE__, __LINE__); \
-		assert(condition); \
-	} \
-} while (0)
-
-/*
- * Maximum lengths for paths to /dev and /sys entries - if they are longer than
- * this something is very wrong
- */
-#define UIO_DEV_PATH_SIZE		16
-#define UIO_MAP_PATH_SIZE		32
-#define UIO_MAX_MAP_NAME_SIZE		64
-
-/*
- * All binary save formats will generally need to be readable and writable by
- * user but not executable
- */
-#define DEFAULT_BIN_CREATE_MODE		S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
-/* Block RAM addresses in this application cannot exceed this value */
-#define MAX_BRAM_ADDR			0xFFFF
 
 int bram_create(struct bram_resource *bram, int uio_number, int map_number)
 {
