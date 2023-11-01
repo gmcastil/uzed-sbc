@@ -46,5 +46,6 @@ int bram_load(struct bram_resource *bram, size_t offset,
 int bram_purge(struct bram_resource *bram, size_t start_addr,
 		size_t stop_addr, uint8_t val);
 
+void print_bram_init_error(int uio_number, int map_number);
 #endif /* BRAM_CTRL_H */
 
