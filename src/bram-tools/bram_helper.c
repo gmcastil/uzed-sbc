@@ -1,7 +1,9 @@
+#include <ctype.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
@@ -249,5 +251,40 @@ int bram_unmap_resource(struct bram_resource *bram)
 		return -1;
 	}
 	return 0;
+}
+
+int str_to_uint16_t(uint16_t *addr, char *str)
+{
+	char *endptr = NULL;
+	char sign;
+	unsigned long val;
+	int base = 16;
+	int save_err;
+
+	/* First trim any whitespace up to the sign character */
+	while (isspace((unsigned char) *str)) {
+		str++;
+	}
+	sign = str[0];
+
+	errno = 0;
+	val = strtoul(str, &endptr, base);
+	save_err = errno;
+	if (str == endptr) {
+		fprintf(stderr, "Error: No conversion occurred\n");
+		return -1;
+	} else if ((save_err) == ERANGE) {
+		fprintf(stderr, "Error: Resulting value out of range\n");
+		return -1;
+	} else if (*endptr) {
+		fprintf(stderr, "Error: Invalid characters detected\n");
+		return -1;
+	} else if (sign == '-' && val != 0) {
+		fprintf(stderr, "Error: Negative value was received\n");
+		return -1;
+	} else {
+		*addr = (uint32_t) val;
+		return 0;
+	}
 }
 
