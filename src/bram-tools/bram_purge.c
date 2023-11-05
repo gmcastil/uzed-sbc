@@ -88,8 +88,10 @@ int main(int argc, char *argv[])
 	} else {
 		uio_number = atoi(argv[optind]);
 		map_number = atoi(argv[optind + 1]);
-		purge_val = (uint8_t) strtoul(argv[optind + 2], NULL, 16);
-
+		if (str_to_uint8_t(&purge_val, argv[optind + 2])) {
+			fprintf(stderr, "Error Bad purge value\n");
+			return -1;
+		}
 		/* This should never be able to occur */
 		assert(argc >= (optind - 3));
 		printf("argc = %d\n", argc);
