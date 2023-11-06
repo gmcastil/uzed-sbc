@@ -10,11 +10,12 @@
 #include "bram_resource.h"
 
 void print_usage() {
-	printf("Usage: bram_dump [-o outfile] DEVICE MAP\n");
+	printf("Usage: bram_dump [-o OUTFILE] DEVICE MAP\n");
 	printf("\n");
 	printf("Options:\n");
 	printf("  %-15s%-30s\n", "-h", "display program usage");
-	printf("  %-15s%-30s\n", "-o outfile", "dump to outfile instead of stdout");
+	printf("  %-15s%-30s\n", "-o OUTFILE", "dump to OUTFILE instead of stdout");
+	printf("\n");
 	return;
 }
 
