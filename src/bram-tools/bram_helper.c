@@ -256,19 +256,12 @@ int bram_unmap_resource(struct bram_resource *bram)
 int str_to_uint8_t(uint8_t *value, char *str)
 {
 	char *endptr = NULL;
-	char sign;
-	unsigned long result;
+	long result;
 	int base = 16;
 	int save_err;
 
-	/* First trim any whitespace up to the sign character */
-	while (isspace((unsigned char) *str)) {
-		str++;
-	}
-	sign = str[0];
-
 	errno = 0;
-	result = strtoul(str, &endptr, base);
+	result = strtol(str, &endptr, base);
 	save_err = errno;
 	if (str == endptr) {
 		fprintf(stderr, "Error: No conversion occurred\n");
@@ -279,8 +272,8 @@ int str_to_uint8_t(uint8_t *value, char *str)
 	} else if (*endptr) {
 		fprintf(stderr, "Error: Invalid characters detected\n");
 		return -1;
-	} else if (sign == '-' && result != 0) {
-		fprintf(stderr, "Error: Negative value was received\n");
+	} else if (result < 0 || result > UINT8_MAX) {
+		fprintf(stderr, "Error: Negative value was received or result out of range\n");
 		return -1;
 	} else {
 		*value = (uint8_t) result;
@@ -291,19 +284,12 @@ int str_to_uint8_t(uint8_t *value, char *str)
 int str_to_uint16_t(uint16_t *value, char *str)
 {
 	char *endptr = NULL;
-	char sign;
-	unsigned long result;
+	long result;
 	int base = 16;
 	int save_err;
 
-	/* First trim any whitespace up to the sign character */
-	while (isspace((unsigned char) *str)) {
-		str++;
-	}
-	sign = str[0];
-
 	errno = 0;
-	result = strtoul(str, &endptr, base);
+	result = strtol(str, &endptr, base);
 	save_err = errno;
 	if (str == endptr) {
 		fprintf(stderr, "Error: No conversion occurred\n");
@@ -314,8 +300,8 @@ int str_to_uint16_t(uint16_t *value, char *str)
 	} else if (*endptr) {
 		fprintf(stderr, "Error: Invalid characters detected\n");
 		return -1;
-	} else if (sign == '-' && result != 0) {
-		fprintf(stderr, "Error: Negative value was received\n");
+	} else if (result < 0 || result > UINT16_MAX) {
+		fprintf(stderr, "Error: Negative value was received or result out of range\n");
 		return -1;
 	} else {
 		*value = (uint16_t) result;
