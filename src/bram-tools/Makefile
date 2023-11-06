@@ -31,4 +31,5 @@ bram_helper.o: bram_helper.c bram_resource.h bram_helper.h
 .PHONY: clean
 clean:
 	$(RM) -f *.o
+	$(RM) bram_info bram_dump bram_purge
 
