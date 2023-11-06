@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+#include "bram_helper.h"
 #include "bram_resource.h"
 
 void print_usage() {

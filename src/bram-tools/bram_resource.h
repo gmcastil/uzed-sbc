@@ -37,15 +37,7 @@ struct bram_resource {
 	size_t map_size;
 };
 
-int bram_summary(struct bram_resource *bram);
 int bram_create(struct bram_resource *bram, int uio_number, int map_number);
 int bram_destroy(struct bram_resource *bram);
-int bram_dump(struct bram_resource *bram, FILE *stream);
-int bram_load(struct bram_resource *bram, size_t offset,
-		size_t num_bytes, FILE *stream);
-int bram_purge(struct bram_resource *bram, size_t start_addr,
-		size_t stop_addr, uint8_t val);
-
-void print_bram_init_error(int uio_number, int map_number);
 #endif /* BRAM_CTRL_H */
 
