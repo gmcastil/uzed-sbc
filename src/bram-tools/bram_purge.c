@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
 				break;
 			case 'v':
 				by_value = true;
-				if (str_to_uint8_t(&purge_val, optarg)) {
+				if (str_to_uint8(&purge_val, optarg)) {
 					fprintf(stderr, "Error: Bad purge value\n");
 					return 1;
 				}
@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
 			default:
 				print_usage();
 				return 1;
-			}
+		}
 	}
 
 	/* Require at least 2 and at most 4 positional arguments */
@@ -229,7 +229,7 @@ int main(int argc, char *argv[])
 			break;
 		/* Only given starting address */
 		case 3:
-			if (str_to_uint16_t(&start_addr, argv[optind + 2])) {
+			if (str_to_uint16(&start_addr, argv[optind + 2])) {
 				fprintf(stderr, "Error: Bad starting address\n");
 				return -1;
 			}
@@ -238,11 +238,11 @@ int main(int argc, char *argv[])
 			break;
 		/* Start and end addresses given */
 		case 4:
-			if (str_to_uint16_t(&start_addr, argv[optind + 2])) {
+			if (str_to_uint16(&start_addr, argv[optind + 2])) {
 				fprintf(stderr, "Error: Bad starting address\n");
 				return -1;
 			}
-			if (str_to_uint16_t(&stop_addr, argv[optind + 3])) {
+			if (str_to_uint16(&stop_addr, argv[optind + 3])) {
 				fprintf(stderr, "Error: Bad ending address\n");
 				return -1;
 			}

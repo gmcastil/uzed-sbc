@@ -253,7 +253,7 @@ int bram_unmap_resource(struct bram_resource *bram)
 	return 0;
 }
 
-int str_to_uint8_t(uint8_t *value, char *str)
+int str_to_uint8(uint8_t *value, char *str)
 {
 	char *endptr = NULL;
 	long result;
@@ -281,7 +281,7 @@ int str_to_uint8_t(uint8_t *value, char *str)
 	}
 }
 
-int str_to_uint16_t(uint16_t *value, char *str)
+int str_to_uint16(uint16_t *value, char *str)
 {
 	char *endptr = NULL;
 	long result;
