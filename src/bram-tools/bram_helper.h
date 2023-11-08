@@ -13,4 +13,7 @@ int bram_unmap_resource(struct bram_resource *bram);
 int str_to_uint8(uint8_t *value, char *str);
 int str_to_uint16(uint16_t *value, char *str);
 
+/* Other common operations */
+int get_file_size(char *filename, uint16_t *size);
+
 #endif /* BRAM_HELPER_H */

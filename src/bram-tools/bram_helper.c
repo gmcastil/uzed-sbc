@@ -309,3 +309,16 @@ int str_to_uint16(uint16_t *value, char *str)
 	}
 }
 
+int get_file_size(char *filename, uint16_t *size)
+{
+	struct stat sb;
+
+	if (stat(filename, &sb)) {
+		fprintf(stderr, "%s\n", strerror(errno));
+		return 1;
+	}
+	*size = (uint16_t) sb.st_size;
+	return 0;
+}
+
+
