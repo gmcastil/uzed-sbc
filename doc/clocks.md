@@ -31,4 +31,20 @@ naive - I had never really sat down and read the documentation on the MMCM and
 PLL primitives before.  I'm glad I ran into this problem, because it gave me the
 opportunity to wrap my mind around the care and feeding of those elements.
 
-After a morning of reading and experimenting, I realized that I have 
+The basic requirements are the following:
+- 100MHz input clock frequency for two reasons.  First, it's easily accessible
+  from the fabric clock network and doesn't require altering the PS
+  configuration to achieve.  Second, the IO carrier card that I have and will
+  likely migrate to for development on the 7020 has an onboard 100MHz oscillator
+  and I like the idea of being able to use that if I need to.
+- From the 100MHz we're going to generate the 236.25MHz principal clock for the
+  PL side of the design using a single MMCM and the first clock output
+- Then, using a sequence of clock dividers based on shift registers, I'm going
+  to directly divide the principal clock into the master, PPU, CPU, and memory
+  clocks.  I'm also going to directly instantiate all the clocking primitives,
+  flops, and reset signals in hardware (I was going to have a single clock and
+  reset module, but this is probably going to get split up).
+
+I'm going to get started on the MMCM instantiation first, see if I can get the
+master clock created, and then see if it gets through the design rule checks.
+
