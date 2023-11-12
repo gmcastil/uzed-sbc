@@ -366,15 +366,38 @@ Operations to support:
 ---------------
 Haven't done anything this week - been working a lot (on somethign that largely
 mirrors this little side project).  This morning, I'm trying to get udev to
-set permissions for me when UIO devices are created. This link is very helpful
-http://www.reactivated.net/writing_udev_rules.html and the only rule I needed to
-write was something like this:
+set permissions for me when UIO devices are created. This [link](http://www.reactivated.net/writing_udev_rules.html)
+is helpful and the only rule I needed to write was something like this:
 
-ACTION=="add", KERNEL=="uio[0-9]*", SUBSYSTEM=="uio", ATTR{name}=="axi_bram_ctrl", MODE="0666"
+`ACTION=="add", KERNEL=="uio[0-9]*", SUBSYSTEM=="uio", ATTR{name}=="axi_bram_ctrl", MODE="0666"`
 
-This needs to get added to a rule in /etc/udev/rules.d/ and it should make UIO
+This needs to get added to a rule in `/etc/udev/rules.d/` and it should make UIO
 devices on this platform read and writable by a normal user.  There's lots of
 extra complexity here, if you want it, but this is fine for what I need.  This
 basically just makes BRAM controllers that show up as UIO devices accessible
 after those nodes are created.
+
+12 November 2023
+----------------
+Lot of thought the last day or so about how to clock the PL design - it wasn't
+as simple as I thought it would be. I don't want to dismantle my set up in my
+office, so I might do some prototyping with my BASYS3 board in the lab to fully
+debug the clock and reset generator circuits, and then port them to the Microzed
+here.  I believe that board has a 33.333MHz on the board, so I shouldn't have to
+make many changes once I'm happy with it in the fabric.  It's a lot easier to
+prototype PL stuff in an actual FPGA than it is in the Zynq.  Here's where we're
+headed:
+
+- Synthesize a 236.25MHz base clock using an MMCM
+- Synthesize a master clock by dividing the base clock by 11 at the MMCM
+- From the master clock, synthesize the following:
+  - CPU clock enable by dividing by 12
+  - PPU clock enable by dividing by 4
+- The relationships of these two output clocks need to be deterministic and
+  stable from route to route. Furthermore, there may need to be a third output
+  to serve as the block RAM clock.  This one still has me a little confused, but
+  it's not something I have to solve today.
+
+Once these are done and working in hardware, I'll address reset.
+
 

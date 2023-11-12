@@ -128,3 +128,5 @@ That's in keeping with its role as a clock source for IO interfaces. Some
 applications may be ok with this, but in my case, I'm quite likely going to want
 to spread my logic across more than one clocking region and running into massive
 congestion is not a problem I want to have to deal with. 
+
+
