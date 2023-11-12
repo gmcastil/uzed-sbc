@@ -7,14 +7,14 @@ Per [this link](https://www.nesdev.org/wiki/Cycle_reference_chart) on the NES
 developers wiki, it appears that the clocks needed are going to be the
 following:
 
-Master Clock defined as 236.25MHz / 11 which works out to 21.477272MHz +/- 40Hz.
+* Master Clock defined as 236.25MHz / 11 which works out to 21.477272MHz +/- 40Hz.
 To simply matters, I'm going to refer to this undivided clock as the principal clock and then
 derive the master clock and all others from it (for reasons that will become clear later).
-
-CPU clock defined as the master clock / 12, or alternatively, the principal
+* CPU clock defined as the master clock / 12, or alternatively, the principal
 clock divided by 132.
-
-PPU clock defined as the master clock / 4 or the principal clock divied by 44.
+* PPU clock defined as the master clock / 4 or the principal clock divied by 44.
+* PPU and CPU clocks need to maintain their relationship to each other. Their
+  relationship to the master clock does not appear to be significant.
 
 To emulate the asynchronous memory that 6502 based platforms have, I will need
 an additional clock to overclock the PL side of the block RAM.  For each rising
