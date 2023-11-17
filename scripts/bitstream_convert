@@ -6,3 +6,6 @@
 # The Vivado `write_bitstream` command does not create bitstreams that are
 # correct type and ordering that is compatible with the 
 bootgen -image bitstream.bif -arch zynq -process_bitstream bin
+
+# TODO: This needs to be turned into something more useful and is here just as a
+# placeholder
