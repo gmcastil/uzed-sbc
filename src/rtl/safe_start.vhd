@@ -2,6 +2,9 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
+library UNISIM;
+use UNISIM.vcomponents.all;
+
 entity safe_start is
 
     generic (
@@ -75,7 +78,7 @@ begin
                 Q       => rst_chain(i+1),
                 C       => clk_local,
                 CE      => '1',
-                CLR     => not arst,
+                PRE     => not arst,
                 D       => rst_chain(i)
             );
         end generate g_rst_chain;

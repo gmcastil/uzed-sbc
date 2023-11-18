@@ -8,15 +8,14 @@ use UNISIM.vcomponents.all;
 entity nes_clks is
     generic (
         -- If desired, an IBUF can be inserted on either the input clock
-        -- or external reset signals. No BUFG is required or should be included
-        -- on the input clock, unless external logic needs to run on that
-        -- domain.
-        CLK_IN_IBUF             : boolean   := false;
-        RST_IN_IBUF             : boolean   := false;
+        -- or external reset signals. Do NOT insert a clock buffer on the input
+        -- clock.
+        ADD_CLK_IBUF            : boolean   := false;
+        ADD_RST_IBUF            : boolean   := false;
         -- Number of `clk_ref` ticks before `rst_ref` is deasserted
-        REF_RST_LENGTH          : natural   := 10;
+        REF_RST_LENGTH          : natural   := 8;
         -- Number of `clk_mst` ticks before `rst_ref` is deasserted
-        MST_RST_LENGTH          : natural   := 10;
+        MST_RST_LENGTH          : natural   := 8;
         -- Number of `clk_en_ppu` ticks before `rst_en_ppu` is deasserted
         PPU_EN_RST_LENGTH       : natural   := 4;
         -- Number of `clk_en_cpu` ticks before `rst_en_cpu` is deasserted
@@ -26,11 +25,11 @@ entity nes_clks is
         -- Nominally a 100MHz input clock, but other values may be possible,
         -- with modifications to the MMCM configuration.  Internally, we
         -- first generate a 236.25MHz clock, divide by 11 to get the 21.477MHz
-        -- master clock and the CPU and PPU clock enables from this.
+        -- master clock and the CPU and PPU clock enables from this. Do NOT insert
+        -- a clock buffer of any kind on this input.
         clk_ext         : in    std_logic;
         -- External active-high reset tied directly to the MMCM reset input.
         rst_ext         : in    std_logic;
-
         -- 236.25MHz clock synthesized from 100MHz input
         clk_ref         : out   std_logic;
         -- 21.477MHz master clock divided by 11 from the 236.25MHz clock
@@ -39,7 +38,6 @@ entity nes_clks is
         clk_en_ppu      : out   std_logic;
         -- CPU clock enable created by dividing the master clock by 12
         clk_en_cpu      : out   std_logic;
-        
         -- Active low reset synchronous to 236.25MHz clock
         rst_ref         : out   std_logic;
         -- Active low reset synchronous to 21.477MHz master clock. 
@@ -47,7 +45,8 @@ entity nes_clks is
         -- Active low resets synchronous to the 21.477MHz master clock, but
         -- timed to deassert coincident with the rising edge of the PPU and
         -- CPU clock enables. It is recommended that circuits that use the
-        -- divided clock enables are reset with these signals.
+        -- divided clock enables are reset with these signals (and also clocked
+        -- with the CPU / PPU clocks as appropriate).
         rst_en_ppu      : out   std_logic;
         rst_en_cpu      : out   std_logic
     );
@@ -62,14 +61,10 @@ architecture structural of nes_clks is
     signal  rst_mmcm            : std_logic;
 
     signal  clk_236m25          : std_logic;
-    signal  clk_ref_int         : std_logic;
     signal  clk_21m477          : std_logic;
     signal  mmcm_locked         : std_logic;
     signal  clk_fb              : std_logic;
 
-    -- TODO add note about N vs N - 1 (confirm in synthesis)
-    signal  rst_ref_chain       : std_logic_vector(0 to REF_RST_LENGTH);
-    signal  rst_mst_chain       : std_logic_vector(0 to MST_RST_LENGTH);
     signal  rst_ppu_en_chain    : std_logic_vector(0 to PPU_EN_RST_LENGTH);
     signal  rst_cpu_en_chain    : std_logic_vector(0 to CPU_EN_RST_LENGTH);
 
@@ -79,7 +74,7 @@ architecture structural of nes_clks is
 begin
 
     -- If indicated, add IBUF to the input clock or reset
-    g_clk_buffer: if CLK_IN_IBUF generate
+    g_clk_buffer: if ADD_CLK_IBUF generate
     begin
         IBUF_clk_ext: IBUF
         generic map (
@@ -94,7 +89,7 @@ begin
         clk_mmcm            <= clk_ext;
     end generate g_clk_buffer;
 
-    g_rst_buffer: if RST_IN_IBUF generate
+    g_rst_buffer: if ADD_RST_IBUF generate
     begin
         IBUF_rst_ext: IBUF
         generic map (
@@ -210,31 +205,36 @@ begin
         CLKFBIN                 => clk_fb
     );
 
-    -- The outputs of the MMCM are immediately placed on the global clock
-    -- network before being used to clock anything else, particularly the shift
-    -- registers that are used to generate the CPU and PPU enable signals
+    -- We treat the MMCM locked indicator as an active-low, asynchronous reset
+    -- signal and each of the two MMCM output clocks, and then generate a
+    -- synchronous reset signal and a buffered output clock that can be used to
+    -- safely clock structures like shift registers or state machines without
+    -- corrupting their initial contents.  See UG949 and PG065, particularly
+    -- figures 4-6 and 4-7 in the latter for discussion.
     --
-    -- UG949 has an entire section on controlling and synchronizing device
-    -- startup which is particularly relevant here.
-    BUFH_clk_ref: BUFH
+    -- Do NOT insert additional clocking resources on these signals.
+    clk_ref_buf: entity work.safe_start
+    generic map (
+        ACTIVE_LOW      => true,
+        RST_LENGTH      => 8
+    )
     port map (
-        O       => clk_ref_int,
-        I       => clk_236m25
+        raw_clk         => clk_236m25,
+        arst            => mmcm_locked,
+        safe_clk        => clk_ref,
+        sync_rst        => rst_ref
     );
 
-    BUFGCE_clk_ref:  BUFGCE
+    clk_mst_buf: entity work.safe_start
+    generic map (
+        ACTIVE_LOW      => true,
+        RST_LENGTH      => 8
+    )
     port map (
-        O       => clk_ref,
-        CE      => rst_ref,
-        I       => clk_236m25
-
-    );
-
-    BUFGCE_clk_mst: BUFGCE
-    port map (
-        O       => clk_mst,
-        CE      => rst_mst,
-        I       => clk_21m477
+        raw_clk         => clk_21m477,
+        arst            => mmcm_locked,
+        safe_clk        => clk_mst,
+        sync_rst        => rst_mst
     );
 
     -- Now obtain the PPU and CPU clocks by dividing the 21.477 MHz master clock
@@ -244,7 +244,8 @@ begin
     -- entirely based on anecdote)
     SRLC32E_ppu_clk: SRLC32E
     generic map (
-        INIT    => X"00000001")
+        INIT    => X"00000001"
+    )
     port map (
         Q 	    => srl_ppu_feedback,
         Q31 	=> open,
@@ -256,7 +257,8 @@ begin
 
     SRLC32E_cpu_clk: SRLC32E
     generic map (
-        INIT    => X"00000001")
+        INIT    => X"00000001"
+    )
     port map (
         Q 	    => srl_cpu_feedback,
         Q31 	=> open,
@@ -266,37 +268,10 @@ begin
         D 	    => srl_cpu_feedback
     );
 
-    -- Generate the flip flop chains that are used to create the reset
-    -- synchronization stages for both the reference and master clock domains
-    -- as well as the resets that are synchronous to the CPU and PPU enables
-    g_rst_ref_chain: for i in 0 to (rst_ref_chain'right - 1) generate
-        FDCE_i: FDCE
-        generic map (
-            INIT    => '0'
-        )
-        port map (
-            Q       => rst_ref_chain(i+1),
-            C       => clk_ref_int,
-            CE      => '1',
-            CLR     => not mmcm_locked,
-            D       => rst_ref_chain(i)
-        );
-    end generate;
-
-    g_rst_mst_chain: for i in 0 to (rst_mst_chain'right - 1) generate
-        FDCE_i: FDCE
-        generic map (
-            INIT    => '0'
-        )
-        port map (
-            Q       => rst_mst_chain(i+1),
-            C       => clk_mst,
-            CE      => '1',
-            CLR     => not rst_ref,
-            D       => rst_mst_chain(i)
-        );
-    end generate;
-
+    -- Generate the flip flop chains that are used to create the timed reset
+    -- synchronization stages for the PPU and CPU clock enables. Note that these
+    -- are all on the same master clock domain, but they are guaranteed to be
+    -- synchronous to each of the two clock enables.
     g_rst_ppu_en_chain: for i in 0 to (rst_ppu_en_chain'right - 1) generate
         FDCE_i: FDCE
         generic map (
@@ -325,13 +300,9 @@ begin
         );
     end generate;
 
-    rst_ref_chain(0)        <= '1';
-    rst_mst_chain(0)        <= '1';
     rst_ppu_en_chain(0)     <= '1';
     rst_cpu_en_chain(0)     <= '1';
 
-    rst_ref                 <= rst_ref_chain(rst_ref_chain'right);
-    rst_mst                 <= rst_mst_chain(rst_mst_chain'right);
     rst_en_ppu              <= rst_ppu_en_chain(rst_ppu_en_chain'right);
     rst_en_cpu              <= rst_cpu_en_chain(rst_cpu_en_chain'right);
 
