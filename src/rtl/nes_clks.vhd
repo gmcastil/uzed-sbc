@@ -1,5 +1,6 @@
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library UNISIM;
 use UNISIM.vcomponents.all;
@@ -54,20 +55,33 @@ end nes_clks;
 
 architecture structural of nes_clks is
 
-    signal  clk_mmcm        : std_logic;
-    signal  rst_mmcm        : std_logic;
+    constant    CLK_CPU_DIVIDE  : natural := 12;
+    constant    CLK_PPU_DIVIDE  : natural := 5;
 
-    signal  clk_236m25      : std_logic;
-    signal  clk_21m477      : std_logic;
-    signal  clk_fb          : std_logic;
-    signal  mmcm_locked     : std_logic;
+    signal  clk_mmcm            : std_logic;
+    signal  rst_mmcm            : std_logic;
+
+    signal  clk_236m25          : std_logic;
+    signal  clk_ref_int         : std_logic;
+    signal  clk_21m477          : std_logic;
+    signal  mmcm_locked         : std_logic;
+    signal  clk_fb              : std_logic;
+
+    -- TODO add note about N vs N - 1 (confirm in synthesis)
+    signal  rst_ref_chain       : std_logic_vector(0 to REF_RST_LENGTH);
+    signal  rst_mst_chain       : std_logic_vector(0 to MST_RST_LENGTH);
+    signal  rst_ppu_en_chain    : std_logic_vector(0 to PPU_EN_RST_LENGTH);
+    signal  rst_cpu_en_chain    : std_logic_vector(0 to CPU_EN_RST_LENGTH);
+
+    signal  srl_ppu_feedback    : std_logic;
+    signal  srl_cpu_feedback    : std_logic;
 
 begin
 
     -- If indicated, add IBUF to the input clock or reset
-    clk_buffer : if CLK_IN_IBUF generate
+    g_clk_buffer: if CLK_IN_IBUF generate
     begin
-        IBUF_clk_ext : IBUF
+        IBUF_clk_ext: IBUF
         generic map (
             IBUF_LOW_PWR    => TRUE,
             IOSTANDARD      => "DEFAULT"
@@ -77,27 +91,27 @@ begin
             I               => clk_ext
         );
     else generate
-        clk_mmcm            => clk_ext;
-    end generate
+        clk_mmcm            <= clk_ext;
+    end generate g_clk_buffer;
 
-    rst_buffer : if RST_IN_IBUF generate
+    g_rst_buffer: if RST_IN_IBUF generate
     begin
-        IBUF_rst_ext : IBUF
+        IBUF_rst_ext: IBUF
         generic map (
             IBUF_LOW_PWR    => TRUE,
             IOSTANDARD      => "DEFAULT"
         )
         port map (
-            O               => rst_mmcm;
+            O               => rst_mmcm,
             I               => rst_ext
         );
     else generate
-        rst_mmcm            => rst_ext;
-    end generate
+        rst_mmcm            <= rst_ext;
+    end generate g_rst_buffer;
 
     -- Synthesize the 236.25 and 21.477 MHz internal clocks from the 100MHz
     -- input clock
-    MMCME2_ADV_i0 : MMCME2_ADV
+    MMCME2_ADV_i0: MMCME2_ADV
     generic map (
         BANDWIDTH               => "OPTIMIZED",
         CLKFBOUT_MULT_F         => 47.250,
@@ -196,8 +210,133 @@ begin
         CLKFBIN                 => clk_fb
     );
 
-        -- Add the two synthesized clocks to the global clock network
+    -- The outputs of the MMCM are immediately placed on the global clock
+    -- network before being used to clock anything else, particularly the shift
+    -- registers that are used to generate the CPU and PPU enable signals
+    --
+    -- UG949 has an entire section on controlling and synchronizing device
+    -- startup which is particularly relevant here.
+    BUFH_clk_ref: BUFH
+    port map (
+        O       => clk_ref_int,
+        I       => clk_236m25
+    );
 
+    BUFGCE_clk_ref:  BUFGCE
+    port map (
+        O       => clk_ref,
+        CE      => rst_ref,
+        I       => clk_236m25
 
-end structural;
+    );
+
+    BUFGCE_clk_mst: BUFGCE
+    port map (
+        O       => clk_mst,
+        CE      => rst_mst,
+        I       => clk_21m477
+    );
+
+    -- Now obtain the PPU and CPU clocks by dividing the 21.477 MHz master clock
+    -- by 5 and 12 respectively. We use the 32-bit version of shift register
+    -- primitives because we want actual flip flop behavior rather than LUTs (I
+    -- have not confirmed any differences in timing or performance - this is
+    -- entirely based on anecdote)
+    SRLC32E_ppu_clk: SRLC32E
+    generic map (
+        INIT    => X"00000001")
+    port map (
+        Q 	    => srl_ppu_feedback,
+        Q31 	=> open,
+        A 	    => std_logic_vector(to_unsigned((CLK_PPU_DIVIDE - 1), 5)),
+        CE 	    => rst_mst,
+        CLK 	=> clk_mst,
+        D 	    => srl_ppu_feedback
+    );
+
+    SRLC32E_cpu_clk: SRLC32E
+    generic map (
+        INIT    => X"00000001")
+    port map (
+        Q 	    => srl_cpu_feedback,
+        Q31 	=> open,
+        A 	    => std_logic_vector(to_unsigned((CLK_CPU_DIVIDE - 1), 5)),
+        CE 	    => rst_mst,
+        CLK 	=> clk_mst,
+        D 	    => srl_cpu_feedback
+    );
+
+    -- Generate the flip flop chains that are used to create the reset
+    -- synchronization stages for both the reference and master clock domains
+    -- as well as the resets that are synchronous to the CPU and PPU enables
+    g_rst_ref_chain: for i in 0 to (rst_ref_chain'right - 1) generate
+        FDCE_i: FDCE
+        generic map (
+            INIT    => '0'
+        )
+        port map (
+            Q       => rst_ref_chain(i+1),
+            C       => clk_ref_int,
+            CE      => '1',
+            CLR     => not mmcm_locked,
+            D       => rst_ref_chain(i)
+        );
+    end generate;
+
+    g_rst_mst_chain: for i in 0 to (rst_mst_chain'right - 1) generate
+        FDCE_i: FDCE
+        generic map (
+            INIT    => '0'
+        )
+        port map (
+            Q       => rst_mst_chain(i+1),
+            C       => clk_mst,
+            CE      => '1',
+            CLR     => not rst_ref,
+            D       => rst_mst_chain(i)
+        );
+    end generate;
+
+    g_rst_ppu_en_chain: for i in 0 to (rst_ppu_en_chain'right - 1) generate
+        FDCE_i: FDCE
+        generic map (
+            INIT    => '0'
+        )
+        port map (
+            Q       => rst_ppu_en_chain(i+1),
+            C       => clk_mst,
+            CE      => clk_en_ppu,
+            CLR     => not rst_ref,
+            D       => rst_ppu_en_chain(i)
+        );
+    end generate;
+
+    g_rst_cpu_en_chain: for i in 0 to (rst_cpu_en_chain'right - 1) generate
+        FDCE_i: FDCE
+        generic map (
+            INIT    => '0'
+        )
+        port map (
+            Q       => rst_cpu_en_chain(i+1),
+            C       => clk_mst,
+            CE      => clk_en_cpu,
+            CLR     => not rst_ref,
+            D       => rst_cpu_en_chain(i)
+        );
+    end generate;
+
+    rst_ref_chain(0)        <= '1';
+    rst_mst_chain(0)        <= '1';
+    rst_ppu_en_chain(0)     <= '1';
+    rst_cpu_en_chain(0)     <= '1';
+
+    rst_ref                 <= rst_ref_chain(rst_ref_chain'right);
+    rst_mst                 <= rst_mst_chain(rst_mst_chain'right);
+    rst_en_ppu              <= rst_ppu_en_chain(rst_ppu_en_chain'right);
+    rst_en_cpu              <= rst_cpu_en_chain(rst_cpu_en_chain'right);
+
+    clk_en_ppu              <= srl_ppu_feedback;
+    clk_en_cpu              <= srl_cpu_feedback;
+
+end architecture structural;
 
