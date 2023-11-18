@@ -194,9 +194,10 @@ begin
         PSINCDEC                => '0',
         -- Feedback Clocks: 1-bit (each) input: Clock feedback ports
         CLKFBIN                 => clk_fb
-        );
+    );
 
         -- Add the two synthesized clocks to the global clock network
+
 
 end structural;
 
