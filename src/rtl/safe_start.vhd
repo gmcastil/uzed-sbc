@@ -5,7 +5,9 @@ use ieee.numeric_std.all;
 entity safe_start is
 
     generic (
-        ACTIVE_LOW          : boolean   := true,
+        -- Set to true for active low output reset or false for active high
+        ACTIVE_LOW          : boolean   := true;
+        -- Number of flip flops to insert in the delay chain
         RST_LENGTH          : natural   := 8
     );
     port (
@@ -18,7 +20,6 @@ entity safe_start is
         -- reset is desired, it can be inverted prior to connection with no
         -- effect upon timing.
         arst        : in    std_logic;
-
         -- Safely buffered clock on the global clock distribution network that
         -- can be used anywhere
         safe_clk    : out   std_logic;
@@ -47,9 +48,9 @@ begin
     -- Instantiate a chain of FDCE (active low) or FDPE (active high) to drive
     -- the output clock enable and synchronous output reset
     g_active_low: if ACTIVE_LOW generate
-    begin
         rst_chain(0)    <= '1';
         g_rst_chain: for i in 0 to (rst_chain'right - 1) generate
+        begin
             FDCE_i: FDCE
             generic map (
                 INIT    => '0'
@@ -61,11 +62,11 @@ begin
                 CLR     => not arst,
                 D       => rst_chain(i)
             );
-        end generate
+        end generate g_rst_chain;
     else generate
-    begin
-        rst_chain(0)    <= '1';
+        rst_chain(0)    <= '0';
         g_rst_chain: for i in 0 to (rst_chain'right - 1) generate
+        begin
             FDPE_i: FDPE
             generic map (
                 INIT    => '1'
@@ -77,8 +78,8 @@ begin
                 CLR     => not arst,
                 D       => rst_chain(i)
             );
-        end generate
-    end generate
+        end generate g_rst_chain;
+    end generate g_active_low;
 
     -- Synchronous reset is just the output of the chain of flip flops
     sync_rst            <= rst_chain(rst_chain'right);
