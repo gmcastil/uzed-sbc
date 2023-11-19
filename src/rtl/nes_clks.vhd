@@ -55,7 +55,7 @@ end nes_clks;
 architecture structural of nes_clks is
 
     constant    CLK_CPU_DIVIDE  : natural := 12;
-    constant    CLK_PPU_DIVIDE  : natural := 5;
+    constant    CLK_PPU_DIVIDE  : natural := 4;
 
     signal  clk_mmcm            : std_logic;
     signal  rst_mmcm            : std_logic;
