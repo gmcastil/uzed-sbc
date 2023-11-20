@@ -26,6 +26,7 @@ entity at28c256 is
     port (
         -- PS memory controller interface
         ps_clk          : in    std_logic;
+        ps_rst          : in    std_logic;
         ps_en           : in    std_logic;
         ps_we           : in    std_logic_vector(3 downto 0);
         ps_addr         : in    std_logic_vector(14 downto 0);
@@ -76,7 +77,7 @@ begin
     --
     -- Primitives output register (block RAM register)
     -- Core output register (fabric register)
-    -- No reset pin
+    -- No reset pin (unused if provided)
     -- Write first operating mode
     --
     -- The PS side is brought up to the top so that it can be connected directly to the PS. Note
