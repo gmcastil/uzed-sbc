@@ -13,12 +13,12 @@ use ieee.std_logic_1164.all;
 entity at28c256
     port (
         -- PS memory controller interface
-        ps_clk			: in    std_logic;
-        ps_en			: in    std_logic;
-        ps_we			: in    std_logic;
-        ps_addr		    : in    std_logic_vector(14 downto 0);
-        ps_din			: in    std_logic_vector(7 downto 0);
-        ps_dout			: in    std_logic_vector(7 downto 0);
+        ps_clk          : in    std_logic;
+        ps_en           : in    std_logic;
+        ps_we           : in    std_logic;
+        ps_addr         : in    std_logic_vector(14 downto 0);
+        ps_din          : in    std_logic_vector(7 downto 0);
+        ps_dout         : in    std_logic_vector(7 downto 0);
 
         -- The SBC processor sees this as an asynchronous memory, so we supply a clock that is
         -- synchronous to the SBC memory interface signals, but sufficiently fast such that
@@ -65,18 +65,18 @@ begin
     -- feature from the SBC side to prevent inadvertent data corruption.
     trp_bram_32kx8_i0: tdp_bram_32kx8
     port map (
-        clka	=> ps_clk,
-        ena		=> ps_en,
-        wea		=> ps_we,
-        addra	=> ps_addr,
-        dina	=> ps_din,
-        douta	=> ps_dout,
-        clkb	=> sbc_clk,
-        enb		=> '1',
-        web		=> '0',
-        addrb	=> sbc_addrb,
-        dinb	=> open,
-        doutb	=> doutb
+        clka    => ps_clk,
+        ena     => ps_en,
+        wea     => ps_we,
+        addra   => ps_addr,
+        dina    => ps_din,
+        douta   => ps_dout,
+        clkb    => sbc_clk,
+        enb     => '1',
+        web     => '0',
+        addrb   => sbc_addrb,
+        dinb    => open,
+        doutb   => doutb
     );
 
 end architecture struct;
