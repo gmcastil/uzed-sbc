@@ -10,11 +10,11 @@
 -- loading of the EEPROM image via JTAG.
 --
 -- Notes on use:
---   - The expected use is with a PS communicating via an AXI BRAM controller on one side and a
---     6502 emulator driving the SBC side of the memory, as if it were an asynchronous EEPROM
+--   - The expected use is with a PS communicating via an AXI BRAM controller on one side and a 6502
+--     emulator driving the SBC side of the memory, as if it were an asynchronous EEPROM
 --   - The AXI BRAM controller, which is usually created via IP Integrator, needs to be configured
---     to expect a minimum read latency of 3 clock cycles. The default value is 1 so if this is not
---     set properly, there is a good chance that data read back will be incorrect.
+--     to expect a minimum read latency of 3 clock cycles. The default value for that IP is 1 so if
+--     this is not set properly, there is a good chance that data read back will be incorrect.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -27,10 +27,10 @@ entity at28c256 is
         -- PS memory controller interface
         ps_clk          : in    std_logic;
         ps_en           : in    std_logic;
-        ps_we           : in    std_logic;
+        ps_we           : in    std_logic_vector(3 downto 0);
         ps_addr         : in    std_logic_vector(14 downto 0);
-        ps_wr_data      : in    std_logic_vector(7 downto 0);
-        ps_rd_data      : out   std_logic_vector(7 downto 0);
+        ps_wr_data      : in    std_logic_vector(31 downto 0);
+        ps_rd_data      : out   std_logic_vector(31 downto 0);
 
         -- The SBC processor sees this as an asynchronous memory, so we supply a clock that is
         -- synchronous to the SBC memory interface signals, but sufficiently fast such that
@@ -57,7 +57,7 @@ architecture struct of at28c256 is
 begin
 
     -- Using these signals in this manner incurs an extra cycle of latency to accesses from
-    -- fabric logic (access from the PS is unaffected). An alternate choice here would be to 
+    -- fabric logic (access from the PS is unaffected). An alternate choice here would be to
     -- make this unclocked and incur some additional routing delay. The actual EEPROM puts the
     -- outputs in a high impedance state because in a real application, the data bus is shared.
     sbc_read: process(sbc_clk) is
@@ -69,23 +69,33 @@ begin
     end process sbc_read;
 
     -- True dual port RAM with independent clocks, three cycles of read latency and configured for a
-    -- depth of 32K and width of 8-bits. The PS side is brought up to the top so that it can be
-    -- connected directly to the PS. Note that since we are emulating a ROM, we disable the write
-    -- feature from the SBC side to prevent inadvertent data corruption.
+    -- Port A:                                              Port B:
+    --   8-bit data                                           32-bit data
+    --   15-bit addr                                          15-bit addr
+    --   32K depth                                            8K depth
+    --
+    -- Primitives output register (block RAM register)
+    -- Core output register (fabric register)
+    -- No reset pin
+    -- Write first operating mode
+    --
+    -- The PS side is brought up to the top so that it can be connected directly to the PS. Note
+    -- that since we are emulating a ROM, we disable the write feature from the SBC side to prevent
+    -- inadvertent data corruption.
     trp_bram_32kx8_i0: tdp_bram_32kx8
     port map (
-        clka    => ps_clk,
-        ena     => ps_en,
-        wea     => ps_we,
-        addra   => ps_addr,
-        dina    => ps_din,
-        douta   => ps_dout,
-        clkb    => sbc_clk,
-        enb     => '1',
-        web     => '0',
-        addrb   => sbc_addrb,
-        dinb    => open,
-        doutb   => doutb
+        clka    => sbc_clk,
+        ena     => '1',
+        wea     => '0',
+        addra   => sbc_addr,
+        dina    => open,
+        douta   => doutb,
+        clkb    => ps_clk,
+        enb     => ps_en,
+        web     => ps_we,
+        addrb   => ps_addr,
+        dinb    => ps_din,
+        doutb   => ps_dout
     );
 
 end architecture struct;
