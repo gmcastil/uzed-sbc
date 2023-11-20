@@ -5,20 +5,32 @@
 -- in a processor, but with a secondary interface sufficient to be read and written by a block RAM
 -- controller. The intent is that a processor model, such as the 6502 can use it as an EEPROM from
 -- one interface, but it can be programmed, written to, purged, etc. from a higher level of abstraction
--- such as software running on a processor via a block RAM controller. 
+-- such as software running on a processor via a block RAM controller. An alternate method which
+-- might be useful in a pure FPGA design, would be a JTAG to AXI bridge, which would allow
+-- loading of the EEPROM image via JTAG.
+--
+-- Notes on use:
+--   - The expected use is with a PS communicating via an AXI BRAM controller on one side and a
+--     6502 emulator driving the SBC side of the memory, as if it were an asynchronous EEPROM
+--   - The AXI BRAM controller, which is usually created via IP Integrator, needs to be configured
+--     to expect a minimum read latency of 3 clock cycles. The default value is 1 so if this is not
+--     set properly, there is a good chance that data read back will be incorrect.
 
 library ieee;
 use ieee.std_logic_1164.all;
 
-entity at28c256
+library UNISIM;
+use UNISIM.vcomponents.all;
+
+entity at28c256 is
     port (
         -- PS memory controller interface
         ps_clk          : in    std_logic;
         ps_en           : in    std_logic;
         ps_we           : in    std_logic;
         ps_addr         : in    std_logic_vector(14 downto 0);
-        ps_din          : in    std_logic_vector(7 downto 0);
-        ps_dout         : in    std_logic_vector(7 downto 0);
+        ps_wr_data      : in    std_logic_vector(7 downto 0);
+        ps_rd_data      : out   std_logic_vector(7 downto 0);
 
         -- The SBC processor sees this as an asynchronous memory, so we supply a clock that is
         -- synchronous to the SBC memory interface signals, but sufficiently fast such that
@@ -34,9 +46,8 @@ entity at28c256
         -- Writes to the EEPROM are not supported, but this signal does need to be driven
         -- appropriately.
         sbc_web         : in    std_logic;
-        sbc_rd_data     : out   std_logic_vector(7 downto 0);
+        sbc_rd_data     : out   std_logic_vector(7 downto 0)
     );
-
 end entity at28c256;
 
 architecture struct of at28c256 is
@@ -51,10 +62,8 @@ begin
     -- outputs in a high impedance state because in a real application, the data bus is shared.
     sbc_read: process(sbc_clk) is
     begin
-        if sbc_web and not sbc_ceb and not sbc_oeb then
+        if (sbc_web = '1') and (sbc_ceb = '0') and (sbc_oeb = '0') then
             sbc_rd_data     <= doutb;
-        else
-            sbc_rd_data     <= sbc_rd_data;
         end if;
 
     end process sbc_read;
