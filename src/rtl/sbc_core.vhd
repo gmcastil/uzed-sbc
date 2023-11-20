@@ -32,7 +32,7 @@ entity sbc_core is
         ext_rom_rst             : in    std_logic;
         ext_rom_en              : in    std_logic;
         ext_rom_we              : in    std_logic_vector(3 downto 0);
-        ext_rom_addr            : in    std_logic_vector(14 downto 0);
+        ext_rom_addr            : in    std_logic_vector(12 downto 0);
         ext_rom_wr_data         : in    std_logic_vector(31 downto 0);
         ext_rom_rd_data         : out   std_logic_vector(31 downto 0);
 
@@ -41,14 +41,14 @@ entity sbc_core is
         ext_sram_rst            : in    std_logic;
         ext_sram_en             : in    std_logic;
         ext_sram_we             : in    std_logic_vector(3 downto 0);
-        ext_sram_addr           : in    std_logic_vector(14 downto 0);
+        ext_sram_addr           : in    std_logic_vector(12 downto 0);
         ext_sram_wr_data        : in    std_logic_vector(31 downto 0);
         ext_sram_rd_data        : out   std_logic_vector(31 downto 0)
     );
 
 end entity sbc_core;
 
-architecture struct of sbc_core is
+architecture structural of sbc_core is
 
     -- Clock, reset, and clock enable
     signal clk_ref          : std_logic;
@@ -92,7 +92,7 @@ begin
         ps_rst          => ext_rom_rst,         -- in    std_logic;
         ps_en           => ext_rom_en,          -- in    std_logic;
         ps_we           => ext_rom_we,          -- in    std_logic_vector(3 downto 0);
-        ps_addr         => ext_rom_addr,        -- in    std_logic_vector(14 downto 0);
+        ps_addr         => ext_rom_addr,        -- in    std_logic_vector(12 downto 0);
         ps_wr_data      => ext_rom_wr_data,     -- in    std_logic_vector(31 downto 0);
         ps_rd_data      => ext_rom_rd_data,     -- out   std_logic_vector(31 downto 0);
         sbc_clk         => '0',                 -- in    std_logic;
@@ -110,7 +110,7 @@ begin
         ps_rst          => ext_sram_rst,        -- in    std_logic;
         ps_en           => ext_sram_en,         -- in    std_logic;
         ps_we           => ext_sram_we,         -- in    std_logic_vector(3 downto 0);
-        ps_addr         => ext_sram_addr,       -- in    std_logic_vector(14 downto 0);
+        ps_addr         => ext_sram_addr,       -- in    std_logic_vector(12 downto 0);
         ps_wr_data      => ext_sram_wr_data,    -- in    std_logic_vector(31 downto 0);
         ps_rd_data      => ext_sram_rd_data,    -- out   std_logic_vector(31 downto 0);
         sbc_clk         => '0',                 -- in    std_logic;
@@ -121,5 +121,5 @@ begin
         sbc_rd_data     => open                 -- out   std_logic_vector(7 downto 0)
     );
 
-end architecture struct;
+end architecture structural;
 

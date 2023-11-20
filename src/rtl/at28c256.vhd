@@ -29,7 +29,7 @@ entity at28c256 is
         ps_rst          : in    std_logic;
         ps_en           : in    std_logic;
         ps_we           : in    std_logic_vector(3 downto 0);
-        ps_addr         : in    std_logic_vector(14 downto 0);
+        ps_addr         : in    std_logic_vector(12 downto 0);
         ps_wr_data      : in    std_logic_vector(31 downto 0);
         ps_rd_data      : out   std_logic_vector(31 downto 0);
 
@@ -51,9 +51,9 @@ entity at28c256 is
     );
 end entity at28c256;
 
-architecture struct of at28c256 is
+architecture structural of at28c256 is
 
-    signal doutb    : std_logic_vector(7 downto 0);
+    signal douta    : std_logic_vector(7 downto 0);
 
 begin
 
@@ -64,7 +64,7 @@ begin
     sbc_read: process(sbc_clk) is
     begin
         if (sbc_web = '1') and (sbc_ceb = '0') and (sbc_oeb = '0') then
-            sbc_rd_data     <= doutb;
+            sbc_rd_data     <= douta;
         end if;
 
     end process sbc_read;
@@ -72,7 +72,7 @@ begin
     -- True dual port RAM with independent clocks, three cycles of read latency and configured for a
     -- Port A:                                              Port B:
     --   8-bit data                                           32-bit data
-    --   15-bit addr                                          15-bit addr
+    --   15-bit addr                                          13-bit addr
     --   32K depth                                            8K depth
     --
     -- Primitives output register (block RAM register)
@@ -80,23 +80,27 @@ begin
     -- No reset pin (unused if provided)
     -- Write first operating mode
     --
+    -- Note that the block RAM needs to be configured with 8-bit byte sizes and with the byte write
+    -- enable option selected (otherwise, the port sizes will not match when the B side is hooked up
+    -- to the AXI BRAM controller).
+    --
     -- The PS side is brought up to the top so that it can be connected directly to the PS. Note
     -- that since we are emulating a ROM, we disable the write feature from the SBC side to prevent
     -- inadvertent data corruption.
-    trp_bram_32kx8_i0: tdp_bram_32kx8
+    trp_bram_32kx8_i0: entity work.tdp_bram_32kx8
     port map (
         clka    => sbc_clk,
         ena     => '1',
-        wea     => '0',
+        wea     => (others=>'0'),
         addra   => sbc_addr,
-        dina    => open,
-        douta   => doutb,
+        dina    => (others=>'0'),
+        douta   => douta,
         clkb    => ps_clk,
         enb     => ps_en,
         web     => ps_we,
         addrb   => ps_addr,
-        dinb    => ps_din,
-        doutb   => ps_dout
+        dinb    => ps_wr_data,
+        doutb   => ps_rd_data
     );
 
-end architecture struct;
+end architecture structural;
