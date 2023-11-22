@@ -61,12 +61,13 @@ begin
     -- fabric logic (access from the PS is unaffected). An alternate choice here would be to
     -- make this unclocked and incur some additional routing delay. The actual EEPROM puts the
     -- outputs in a high impedance state because in a real application, the data bus is shared.
-    sbc_read: process(sbc_clk) is
+    sbc_read: process (sbc_clk) is
     begin
-        if (sbc_web = '1') and (sbc_ceb = '0') and (sbc_oeb = '0') then
-            sbc_rd_data     <= douta;
+        if rising_edge(sbc_clk) then
+            if (sbc_web = '1') and (sbc_ceb = '0') and (sbc_oeb = '0') then
+                sbc_rd_data     <= douta;
+            end if;
         end if;
-
     end process sbc_read;
 
     -- True dual port RAM with independent clocks, three cycles of read latency and configured for a
