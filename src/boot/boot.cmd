@@ -5,7 +5,7 @@
 # general
 default_bootargs="earlycon console=ttyPS0,111520 clk_ignore_unused uio_pdrv_genirq.of_id=generic-uio root=/dev/mmcblk0p2 rw rootwait earlyprintk"
 
-bitstream="uzed_sbc_top.bit.bin"
+bitstream="uzed_top.bit.bin"
 bitstream_size="0x001fcba0"
 
 uimage="uImage"
