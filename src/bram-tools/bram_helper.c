@@ -22,6 +22,9 @@
 #define UIO_MAP_PATH_SIZE		32
 #define UIO_MAX_MAP_NAME_SIZE		64
 
+/* Hardware bus width */
+#define BRAM_BUS_WIDTH			32
+
 void print_bram_init_error(int uio_number, int map_number)
 {
 	fprintf(stderr, "Error: Could not create BRAM resource for UIO device %d "
@@ -191,6 +194,13 @@ int bram_set_map_info(struct bram_resource *bram)
 		fprintf(stderr, "Could not get map size\n");
 		return -1;
 	}
+	/*
+	 * The map size from the device tree reflects the depth of the memory.
+	 * The memory access bus is generally wider than a single byte, so we
+	 * need to correct for this (e.g., an AXI bus width of 32-bits and a
+	 * memory depth of 0x2000 or 8k per Xilinx is actually 32KB).
+	 */
+	map_size = map_size << (BRAM_BUS_WIDTH >> 4);
 
 	/* Now that we have all of these, we set the values */
 	bram->map_path = map_path;
