@@ -5,6 +5,9 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+/* This will typically be determined by the PS configuration within Vivado */
+#define BRAM_AXI_CTRL_WIDTH			32
+
 struct bram_resource {
 	/* User provides the UIO device and map numbers at creation */
 	int uio_number;
@@ -33,8 +36,19 @@ struct bram_resource {
 	 * sysconf(_SC_PAGE_SIZE).
 	 */
 	off_t map_offset;
-	/* Size in bytes of the memory */
+	/* 
+	 * Memory depth - NOTE this is the range as determined by the
+	 * address editor in Vivado, not the total size of the block RAM.
+	 */
 	size_t map_size;
+	/*
+	 * The device node for the block RAM controller has the property
+	 * `xlnx,s-axi-ctrl-data-width` which specifies the AXI bus width, but
+	 * this may not presently be exported by the UIO driver. For now, we
+	 * will set it at compile time and then carry it around with the BRAM
+	 * resource structure.
+	 */
+	size_t map_width;
 };
 
 int bram_create(struct bram_resource *bram, int uio_number, int map_number);

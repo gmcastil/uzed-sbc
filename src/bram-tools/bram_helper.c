@@ -22,9 +22,6 @@
 #define UIO_MAP_PATH_SIZE		32
 #define UIO_MAX_MAP_NAME_SIZE		64
 
-/* Hardware bus width */
-#define BRAM_BUS_WIDTH			32
-
 void print_bram_init_error(int uio_number, int map_number)
 {
 	fprintf(stderr, "Error: Could not create BRAM resource for UIO device %d "
@@ -74,8 +71,9 @@ int bram_set_map_info(struct bram_resource *bram)
 
 	uint32_t map_addr;
 	static char map_name[UIO_MAX_MAP_NAME_SIZE];
-	uint32_t map_offset;
-	uint32_t map_size;
+	off_t map_offset;
+	size_t map_size;
+	size_t map_width;
 
 	/* Get the path to the map file in /sys which we will mmap() later */
 	result = snprintf(map_path, sizeof(map_path),
@@ -194,13 +192,9 @@ int bram_set_map_info(struct bram_resource *bram)
 		fprintf(stderr, "Could not get map size\n");
 		return -1;
 	}
-	/*
-	 * The map size from the device tree reflects the depth of the memory.
-	 * The memory access bus is generally wider than a single byte, so we
-	 * need to correct for this (e.g., an AXI bus width of 32-bits and a
-	 * memory depth of 0x2000 or 8k per Xilinx is actually 32KB).
-	 */
-	map_size = map_size << (BRAM_BUS_WIDTH >> 4);
+
+	/* Get map width */
+	map_width = BRAM_AXI_CTRL_WIDTH;
 
 	/* Now that we have all of these, we set the values */
 	bram->map_path = map_path;
@@ -208,6 +202,7 @@ int bram_set_map_info(struct bram_resource *bram)
 	bram->map_name = map_name;
 	bram->map_offset = map_offset;
 	bram->map_size = map_size;
+	bram->map_width = map_width;
 	return 0;
 }
 
@@ -216,6 +211,7 @@ int bram_map_resource(struct bram_resource *bram)
 	int fd;
 
 	void *map;
+	size_t length;
 
 	fd = open(bram->dev_path, O_RDWR);
 	if (fd < 0) {
@@ -232,7 +228,8 @@ int bram_map_resource(struct bram_resource *bram)
 	 * to not modify the struct that is passed in unless the memory map was
 	 * successful
 	 */
-	map = mmap(NULL, bram->map_size, PROT_READ | PROT_WRITE, MAP_SHARED,
+	length = bram->map_size * bram->map_width;
+	map = mmap(NULL, length, PROT_READ | PROT_WRITE, MAP_SHARED,
 			fd, bram->map_offset);
 	if (!map) {
 		fprintf(stderr, "Error: %s\n", strerror(errno));
@@ -251,11 +248,14 @@ err_open:
 int bram_unmap_resource(struct bram_resource *bram)
 {
 	int result;
+	size_t length;
+
 	if (!bram->map) {
 		fprintf(stderr, "No memory to unmap\n");
 		return -1;
 	}
-	result = munmap(bram->map, bram->map_size);
+	length = bram->map_size * bram->map_width;
+	result = munmap(bram->map, length);
 	if (result) {
 		fprintf(stderr, "Error: %s\n", strerror(errno));
 		return -1;
