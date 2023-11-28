@@ -87,6 +87,10 @@ begin
 
     -- EEPROM
     eeprom_i0: entity work.at28c256
+    generic map (
+        DEBUG_PAGE_DUMP_ENABLED     => true,
+        BRAM_RD_LATENCY             => x"3"
+    )
     port map (
         ps_clk          => ext_rom_clk,         -- in    std_logic;
         ps_rst          => ext_rom_rst,         -- in    std_logic;
@@ -95,7 +99,7 @@ begin
         ps_addr         => ext_rom_addr,        -- in    std_logic_vector(12 downto 0);
         ps_wr_data      => ext_rom_wr_data,     -- in    std_logic_vector(31 downto 0);
         ps_rd_data      => ext_rom_rd_data,     -- out   std_logic_vector(31 downto 0);
-        sbc_clk         => '0',                 -- in    std_logic;
+        sbc_clk         => clk_mst,             -- in    std_logic;
         sbc_addr        => (others=>'0'),       -- in    std_logic_vector(14 downto 0);
         sbc_ceb         => '1',                 -- in    std_logic;
         sbc_oeb         => '1',                 -- in    std_logic;
@@ -105,6 +109,10 @@ begin
 
     -- SRAM
     sram_i0: entity work.at28c256
+    generic map (
+        DEBUG_PAGE_DUMP_ENABLED     => false,
+        BRAM_RD_LATENCY             => x"3"
+    )
     port map (
         ps_clk          => ext_sram_clk,        -- in    std_logic;
         ps_rst          => ext_sram_rst,        -- in    std_logic;
@@ -113,7 +121,7 @@ begin
         ps_addr         => ext_sram_addr,       -- in    std_logic_vector(12 downto 0);
         ps_wr_data      => ext_sram_wr_data,    -- in    std_logic_vector(31 downto 0);
         ps_rd_data      => ext_sram_rd_data,    -- out   std_logic_vector(31 downto 0);
-        sbc_clk         => '0',                 -- in    std_logic;
+        sbc_clk         => clk_mst,              -- in    std_logic;
         sbc_addr        => (others=>'0'),       -- in    std_logic_vector(14 downto 0);
         sbc_ceb         => '1',                 -- in    std_logic;
         sbc_oeb         => '1',                 -- in    std_logic;
