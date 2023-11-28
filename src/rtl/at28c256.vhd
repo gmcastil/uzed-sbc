@@ -130,74 +130,54 @@ architecture structural of at28c256 is
 
 begin
 
-    -- This logic is straight out of the AT28C256 datasheet, but in our case with registered outputs
-    -- and an extra cycle of latency. It is expected that the processor is only looking at the ROM
-    -- during clock cycles when the CPU clock enable is asserted, which is /12 the SBC clock rate.
-    -- To make it easier to detect problems, we drive the data bus with all ones unless it is
-    -- enabled properly (even though we have the data from the memory).
-    sbc_read: process (sbc_clk) is
-    begin
-        if rising_edge(sbc_clk) then
-            if (sbc_web = '1') and (sbc_ceb = '0') and (sbc_oeb = '0') then
-                sbc_rd_data     <= pl_rd_data;
-            else
-                sbc_rd_data     <= (others=>'1');
+    -- We define two very different mechanisms for driving the block RAM. A normal read operation
+    -- enables the block RAM when the control signals are set appropriately and disables it after
+    -- that. The relationships between the clock frequency and the clock enable signal and the read
+    -- latency need to be such that a read is completed prior to the next read request.
+    bram_ctrl: if not DEBUG_PAGE_DUMP_ENABLED generate
+        -- When we're not debugging this interface, the address at the BRAM is
+        -- always wired into the block RAM address.
+        pl_addr         <= sbc_addr;
+
+        -- This logic is straight out of the AT28C256 datasheet, but in our case with registered
+        -- outputs and an extra cycle of latency. We enable the PL side of the BRAM when the SBC
+        -- control signals are correct, and then ignore read requests until finished. The busy
+        -- signal is present to prevent the next read from being performed prior to completing the
+        -- first (i.e., no pipelining of reads is allowed).
+        sbc_read: process (sbc_clk) is
+        begin
+            if rising_edge(sbc_clk) then
+                if (sbc_web = '1') and (sbc_ceb = '0') and (sbc_oeb = '0') and (busy = '0') then
+                    pl_en           <= '1';
+                    busy            <= '1';
+                    rd_stall_cnt    <= BRAM_RD_LATENCY - 1;
+                elsif (busy = '1') then
+                    if (rd_stall_cnt /= x"0") then
+                        pl_en           <= '1';
+                        busy            <= '1';
+                        rd_stall_cnt    <= rd_stall_cnt - 1;
+                    else
+                        pl_en           <= '0';
+                        busy            <= '0';
+                        rd_stall_cnt    <= x"0";
+                        sbc_rd_data     <= pl_rd_data;
+                    end if;
+                else
+                    pl_en           <= '0';
+                    busy            <= '0';
+                    rd_stall_cnt    <= x"0";
+                end if;
             end if;
-        end if;
-    end process sbc_read;
+        end process sbc_read;
 
-    -- True dual port RAM with independent clocks, three cycles of read latency and configured for a
-    -- Port A:                                              Port B:
-    --   8-bit data                                           32-bit data
-    --   15-bit addr                                          13-bit addr
-    --   32K depth                                            8K depth
-    --
-    -- Primitives output register (block RAM register)
-    -- Core output register (fabric register)
-    -- No reset pin (unused if provided)
-    -- Write first operating mode
-    --
-    -- Note that the block RAM needs to be configured with 8-bit byte sizes and with the byte write
-    -- enable option selected (otherwise, the port sizes will not match when the B side is hooked up
-    -- to the AXI BRAM controller).
-    --
-    -- The PS side is brought up to the top so that it can be connected directly to the PS. Note
-    -- that since we are emulating a ROM, we disable the write feature from the SBC side to prevent
-    -- inadvertent data corruption. The PL side write enable is hooked to a vector because the
-    -- ECAD tool creates a degenerate case (i.e., std_logic_vector(0 downto 0)).
-    trp_bram_32kx8_i0: entity work.tdp_bram_32kx8
-    port map (
-        clka    => sbc_clk,
-        ena     => pl_en,
-        wea     => (others=>'0'),
-        addra   => pl_addr,
-        dina    => (others=>'0'),
-        douta   => pl_rd_data,
-        clkb    => ps_clk,
-        enb     => ps_en,
-        web     => ps_we,
-        addrb   => ps_addr,
-        dinb    => ps_wr_data,
-        doutb   => ps_rd_data
-    );
-
-    -- In general, the block RAM is always enabled and reads will be serviced as quickly as 
-    -- they are received so we always enable PL side access
-    pl_en               <= '1';
-
-    -- We wish to add the ability to dump a page of the block RAM from the hardware side to
-    -- chipscope if a VIO and ILA are enabled during synthesis. In this context, a page refers
-    -- to a 256 byte address range such as 0x00FF - 0x0000 (i.e., the zero page) rather than
-    -- the 4KB pages that are commonly used in systems with virtual memory, such as the Linux
-    -- kernel.
-    dbg_bram_gen: if DEBUG_PAGE_DUMP_ENABLED generate
-        -- Instantiate a VIO
-        dump_page_ctrl: vio_dump_page_ctrl
-        port map (
-            clk         => sbc_clk,
-            probe_out0  => dump_start,
-            probe_out1  => dump_page
-        );
+    -- If desired, we allow the block RAM to be dumped from Vivado using an internal VIO and ILA
+    -- combination. A 7-bit page number can first be set and then a single start bit can be set
+    -- which issues a sequence of reads that dumps the contents of that page to the ILA. This is
+    -- useful when attempting to verify that the PS side of the block RAM interface (or more
+    -- accurately, the AXI controller) is functioning properly. In this context, a page refers to a
+    -- 256 byte address range such as 0x00FF - 0x0000 (i.e., the zero page) rather than the 4KB
+    -- pages that are commonly used in systems with virtual memory, such as the Linux kernel.
+    else generate
 
         -- Need a rising edge detector to actually initiaiate the block RAM dump
         start_dump_red_p: process(sbc_clk)
@@ -218,14 +198,12 @@ begin
         dump_page_p: process(sbc_clk)
         begin
             if rising_edge(sbc_clk) then
-                -- S0: Start a memory dump
-                if (dump_start_red = '1' and dump_busy = '0') then
-                    dump_busy           <= '1';
-                    rd_stall_cnt        <= BRAM_RD_LATENCY;
-                    pl_addr             <= dump_page & std_logic_vector(addr_cnt);
+                if (dump_start_red = '1' and busy = '0') then
+                    busy                <= '1';
+                    rd_stall_cnt        <= BRAM_RD_LATENCY - 1;
+                    pl_addr             <= dump_page & x"00";
                     addr_cnt            <= x"00";
-                -- S1: Memory dump in progress
-                elsif (dump_busy = '1') then
+                elsif (busy = '1') then
                     if (rd_stall_cnt /= 0) then
                         dump_busy           <= '1';
                         rd_stall_cnt        <= rd_stall_cnt - 1;
@@ -244,7 +222,6 @@ begin
                             addr_cnt            <= addr_cnt + 1;
                         end if;
                     end if;
-                -- S2: Wait for a start condition
                 else
                     dump_busy           <= '0';
                     rd_stall_cnt        <= x"0";
@@ -253,6 +230,14 @@ begin
                 end if;
             end if;
         end process dump_page_p;
+
+        -- Instantiate a VIO
+        dump_page_ctrl: vio_dump_page_ctrl
+        port map (
+            clk         => sbc_clk,
+            probe_out0  => dump_start,
+            probe_out1  => dump_page
+        );
 
         -- Instantiate an ILA
         dump_page_mon: ila_dump_page_mon 
@@ -268,10 +253,39 @@ begin
             probe7      => pl_rd_data
         );
 
-    else generate
-        -- When we're not debugging this interface, the address at the BRAM is
-        -- the same as the address from the SBC.
-        pl_addr     <= sbc_addr;
-    end generate dbg_bram_gen;
+    -- True dual port RAM with independent clocks, three cycles of read latency and configured for a
+    -- Port A:                                              Port B:
+    --   8-bit data                                           32-bit data
+    --   15-bit addr                                          13-bit addr
+    --   32K depth                                            8K depth
+    --
+    -- Primitives output register (block RAM register)
+    -- Core output register (fabric register)
+    -- No reset pin (unused if provided)
+    -- Write first operating mode
+    --
+    -- Note that the block RAM needs to be configured with 8-bit byte sizes and with the byte write
+    -- enable option selected (otherwise, the port sizes will not match when the B side is hooked up
+    -- to the AXI BRAM controller).
+    --
+    -- The PS side is brought up to the top so that it can be connected directly to the PS. Note
+    -- that since we are emulating a ROM, we disable the write feature from the SBC side to prevent
+    -- inadvertent data corruption. The PL side write enable is hooked to a vector because the
+    -- ECAD tool creates a degenerate case (i.e., std_logic_vector(0 downto 0)).
+    trp_bram_32kx8_i0: entity tdp_bram_32kx8
+    port map (
+        clka    => sbc_clk,
+        ena     => pl_en,
+        wea     => (others=>'0'),
+        addra   => pl_addr,
+        dina    => (others=>'0'),
+        douta   => pl_rd_data,
+        clkb    => ps_clk,
+        enb     => ps_en,
+        web     => ps_we,
+        addrb   => ps_addr,
+        dinb    => ps_wr_data,
+        doutb   => ps_rd_data
+    );
 
 end architecture structural;
