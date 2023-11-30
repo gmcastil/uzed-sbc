@@ -231,7 +231,7 @@ begin
             end if;
         end process dump_page_p;
 
-        -- Instantiate a VIO
+        -- Instantiate a VIO to initiate a dump operation for a given page
         dump_page_ctrl: vio_dump_page_ctrl
         port map (
             clk         => sbc_clk,
@@ -239,7 +239,7 @@ begin
             probe_out1  => dump_page
         );
 
-        -- Instantiate an ILA
+        -- Instantiate an ILA to monitor the result of dumping a page in hardware
         dump_page_mon: ila_dump_page_mon 
         port map (
             clk         => sbc_clk,
@@ -252,6 +252,8 @@ begin
             probe6      => pl_addr,
             probe7      => pl_rd_data
         );
+
+    end generate bram_ctrl;
 
     -- True dual port RAM with independent clocks, three cycles of read latency and configured for a
     -- Port A:                                              Port B:
