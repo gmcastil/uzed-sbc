@@ -193,31 +193,41 @@ begin
             end if;
         end process start_dump_red_p;
 
-        -- Now we need to increment the counter after the start indicator is given and then
-        -- wait the appropriate number of clocks to let the BRAM service the read request
+        -- When we receive a start indicator from the VIO, we start at the beginning of the page,
+        -- enable the block RAM, and then start reading one byte at a time out of the memory,
+        -- waiting the required number of clocks after each read.  If we have purged the memory with
+        -- an incrementing pattern, we should see a sequence of bytes in the ILA from 0x00 to 0xFF
+        -- from the memory. Since we are setting the bus to PL_ADDR_IDLE after the presentation of
+        -- each address, the address values in the ILA will hop all over the place, but the data
+        -- should come out sequentially in a well-behaved order that is easily recognizable in the
+        -- hardware manager.
         dump_page_p: process(sbc_clk)
         begin
             if rising_edge(sbc_clk) then
                 if (dump_start_red = '1' and busy = '0') then
                     busy                <= '1';
                     rd_stall_cnt        <= BRAM_RD_LATENCY - 1;
-                    pl_addr             <= dump_page & x"00";
-                    addr_cnt            <= x"00";
+                    pl_en               <= '1';
+                    pl_addr             <= dump_page & addr_cnt;
+                    addr_cnt            <= addr_cnt + 1;
                 elsif (busy = '1') then
                     if (rd_stall_cnt /= 0) then
                         dump_busy           <= '1';
                         rd_stall_cnt        <= rd_stall_cnt - 1;
+                        pl_en               <= '1';
                         pl_addr             <= PL_ADDR_IDLE;
                         addr_cnt            <= addr_cnt;
                     else
                         if (addr_cnt = x"FF") then
                             dump_busy           <= '0';
                             rd_stall_cnt        <= x"0";
+                            pl_en               <= '0';
                             pl_addr             <= PL_ADDR_IDLE;
                             addr_cnt            <= x"00";
                         else
                             dump_busy           <= '1';
                             rd_stall_cnt        <= BRAM_RD_LATENCY;
+                            pl_en               <= '1';
                             pl_addr             <= dump_page & std_logic_vector(addr_cnt + 1);
                             addr_cnt            <= addr_cnt + 1;
                         end if;
@@ -225,6 +235,7 @@ begin
                 else
                     dump_busy           <= '0';
                     rd_stall_cnt        <= x"0";
+                    pl_en               <= '0';
                     pl_addr             <= PL_ADDR_IDLE;
                     addr_cnt            <= x"00";
                 end if;
